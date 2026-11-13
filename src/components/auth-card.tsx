@@ -68,20 +68,20 @@ export function AuthCard({ userEmail, authError }: { userEmail: string | null; a
 
   if (userEmail) {
     return (
-      <Panel title="Active workspace session" code="AUTH" right={<Badge tone="ok">signed in</Badge>}>
+      <Panel title="Active workspace session" code="AUTH" right={<Badge tone="ok">Signed in</Badge>}>
         <div className="space-y-4">
-          <div className="rounded border border-border bg-secondary/40 p-3">
+          <div className="rounded-xl border border-hairline bg-paper/60 p-4">
             <MonoLabel className="text-muted-foreground">Authenticated owner</MonoLabel>
-            <div className="mt-1 truncate font-mono text-xs font-semibold">{userEmail}</div>
+            <div className="mt-1 truncate text-[14px] font-medium">{userEmail}</div>
           </div>
           <div className="flex flex-col gap-2">
             <Link
               href="/dashboard"
-              className="inline-flex items-center justify-center gap-2 rounded-sm border border-accent bg-accent px-3 py-2 text-[11px] font-bold uppercase tracking-widest text-accent-foreground transition-colors hover:bg-accent/90"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-accent-strong px-5 text-[14.5px] font-medium text-white transition-colors hover:bg-accent-ink"
             >
-              Open Command Centre <ArrowRight className="size-3.5" />
+              Open the command centre <ArrowRight className="size-3.5" />
             </Link>
-            <Btn type="button" onClick={() => void handleSignOut()} disabled={busy} className="w-full">
+            <Btn type="button" onClick={() => void handleSignOut()} disabled={busy} className="min-h-11 w-full">
               <LogOut className="size-3.5" /> Sign out
             </Btn>
           </div>
@@ -93,7 +93,7 @@ export function AuthCard({ userEmail, authError }: { userEmail: string | null; a
   return (
     <Panel title="Owner access" code="AUTH" right={<Badge tone={supabase ? "info" : "neutral"}>{supabase ? "Supabase Auth" : "Demo only"}</Badge>}>
       <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-1 rounded-sm border border-border bg-secondary/50 p-1">
+        <div className="grid grid-cols-2 gap-1 rounded-full bg-paper-2 p-1">
           <button
             type="button"
             onClick={() => {
@@ -102,8 +102,8 @@ export function AuthCard({ userEmail, authError }: { userEmail: string | null; a
               setNotice(null);
             }}
             className={cn(
-              "cursor-pointer rounded-sm px-2 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors",
-              mode === "signin" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+              "min-h-9 cursor-pointer rounded-full px-3 text-[13.5px] font-medium transition-colors",
+              mode === "signin" ? "bg-ink text-paper shadow-sm" : "text-muted-foreground hover:text-foreground",
             )}
           >
             Sign in
@@ -116,18 +116,18 @@ export function AuthCard({ userEmail, authError }: { userEmail: string | null; a
               setNotice(null);
             }}
             className={cn(
-              "cursor-pointer rounded-sm px-2 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider transition-colors",
-              mode === "signup" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+              "min-h-9 cursor-pointer rounded-full px-3 text-[13.5px] font-medium transition-colors",
+              mode === "signup" ? "bg-ink text-paper shadow-sm" : "text-muted-foreground hover:text-foreground",
             )}
           >
             Create account
           </button>
         </div>
 
-        <form onSubmit={(e) => void handleSubmit(e)} className="space-y-3">
-          <div className="space-y-1">
+        <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
+          <div className="space-y-1.5">
             <label htmlFor="auth-email" className="block">
-              <MonoLabel className="text-muted-foreground">Email</MonoLabel>
+              <span className="text-[13px] font-medium text-ink-3">Email</span>
             </label>
             <input
               id="auth-email"
@@ -137,13 +137,13 @@ export function AuthCard({ userEmail, authError }: { userEmail: string | null; a
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="owner@business.co.za"
-              className="h-9 w-full rounded-sm border border-input bg-background px-2.5 text-xs outline-none focus:border-accent"
+              className="h-11 w-full rounded-full border border-hairline bg-paper px-4 text-[14px] transition-colors outline-none placeholder:text-muted-foreground focus:border-accent-ink focus:bg-card focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink"
             />
           </div>
 
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <label htmlFor="auth-password" className="block">
-              <MonoLabel className="text-muted-foreground">Password</MonoLabel>
+              <span className="text-[13px] font-medium text-ink-3">Password</span>
             </label>
             <input
               id="auth-password"
@@ -154,30 +154,30 @@ export function AuthCard({ userEmail, authError }: { userEmail: string | null; a
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Min. 6 characters"
-              className="h-9 w-full rounded-sm border border-input bg-background px-2.5 text-xs outline-none focus:border-accent"
+              className="h-11 w-full rounded-full border border-hairline bg-paper px-4 text-[14px] transition-colors outline-none placeholder:text-muted-foreground focus:border-accent-ink focus:bg-card focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink"
             />
           </div>
 
-          {error ? <div className="rounded border border-destructive/30 bg-destructive/10 px-2.5 py-2 text-[11px] text-destructive">{error}</div> : null}
-          {notice ? <div className="rounded border border-accent/30 bg-accent/10 px-2.5 py-2 text-[11px] text-accent">{notice}</div> : null}
+          {error ? <div className="rounded-xl border border-destructive/25 bg-destructive/[0.06] px-3.5 py-2.5 text-[13px] text-destructive-ink" role="alert">{error}</div> : null}
+          {notice ? <div className="rounded-xl border border-accent/30 bg-accent/[0.08] px-3.5 py-2.5 text-[13px] text-accent-ink" role="status">{notice}</div> : null}
 
-          <Btn type="submit" variant="accent" disabled={busy || !supabase} className="w-full py-2">
+          <Btn type="submit" variant="accent" disabled={busy || !supabase} className="min-h-11 w-full text-[14.5px]">
             {busy ? "Working…" : mode === "signin" ? "Sign in to workspace" : "Create workspace account"}
           </Btn>
         </form>
 
         <div className="relative flex items-center py-1">
-          <div className="flex-1 border-t border-border" />
-          <MonoLabel className="px-2 text-muted-foreground">or</MonoLabel>
-          <div className="flex-1 border-t border-border" />
+          <div className="flex-1 border-t border-hairline" />
+          <MonoLabel className="px-3 text-muted-foreground">or</MonoLabel>
+          <div className="flex-1 border-t border-hairline" />
         </div>
 
         <Link
           href="/dashboard"
-          className="inline-flex w-full items-center justify-center gap-2 rounded-sm border border-border bg-secondary/60 px-3 py-2 text-[11px] font-bold uppercase tracking-widest text-foreground transition-colors hover:bg-secondary"
+          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-ink px-5 text-[14.5px] font-medium text-paper transition-colors hover:bg-ink-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink"
         >
-          <ShieldCheck className="size-3.5 text-accent" />
-          Launch Live Demo (No Sign-Up)
+          <ShieldCheck className="size-4 text-accent" />
+          Launch the live demo · no sign-up
           <ArrowRight className="size-3.5" />
         </Link>
       </div>

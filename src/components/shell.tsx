@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Bot,
+  Building2,
   Gauge,
   GraduationCap,
   LogIn,
@@ -13,12 +14,14 @@ import {
   MessageCircle,
   PanelLeftClose,
   PanelLeftOpen,
+  PanelRightClose,
+  PanelRightOpen,
   Radar,
   ShieldCheck,
   Users,
   X,
 } from "lucide-react";
-import { business } from "@/lib/agent/data";
+import { business, TURNOVER } from "@/lib/agent/data";
 import type { Tab } from "@/lib/agent/types";
 import { createClient } from "@/lib/supabase/client";
 import { useMetaxy } from "@/lib/store";
@@ -26,6 +29,7 @@ import { ComplianceBoard } from "@/components/compliance-board";
 import { CrmBoard, OpportunitiesBoard } from "@/components/other-boards";
 import { OperationsBoard } from "@/components/operations-board";
 import { WhatsAppBoard } from "@/components/whatsapp-board";
+import { WhatsAppPanel } from "@/components/whatsapp-panel";
 import { AgentDock } from "@/components/agent-console";
 import { Badge, MonoLabel, cn } from "@/components/ui";
 import { MetaxyMark } from "@/components/ui/metaxy-mark";
@@ -40,7 +44,7 @@ const tabs: { id: Tab; code: string; label: string; short: string; icon: typeof 
 ];
 
 /** Shared ids for aria-controls. The phone keeps its id inside the WhatsApp module. */
-const ids = { leftNav: "left-nav", leftSheet: "left-sheet" };
+const ids = { leftNav: "left-nav", leftSheet: "left-sheet", phone: "phone-panel" };
 
 const studioMemory = `${business.owner} balances a BSc IS degree with freelance clients in ${business.area}. CIPC, SARS, and the study calendar stay with the studio.`;
 
