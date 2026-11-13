@@ -3,7 +3,7 @@ import { askGrok, askOpenAI, resolveAssistantProvider } from "@/lib/assistant/gr
 import { route } from "@/lib/assistant/router";
 import type { AssistantRequest, AssistantResponse } from "@/lib/assistant/types";
 
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 /** Owner ↔ METAXY console. Uses OpenAI or Grok with tools when configured, otherwise (or on failure) the offline router. */
 export async function POST(req: Request) {

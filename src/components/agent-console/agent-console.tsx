@@ -1,23 +1,26 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { ArrowRight, Check, Send, ShieldAlert, Sparkles, X } from "lucide-react";
+import { ArrowRight, Check, Mic, MicOff, PhoneOff, Radio, Send, ShieldAlert, Sparkles, X } from "lucide-react";
 import { SUGGESTED_PROMPTS } from "@/lib/assistant/types";
 import { useMetaxy, type AssistantMsg } from "@/lib/store";
 import { Badge, Btn, MonoLabel, cn } from "@/components/ui";
+import { useLiveVoice } from "./use-live-voice";
 
 /**
- * "Ask METAXY" — the owner talks to the agent, and the agent moves around the dashboard.
- * Launcher sits bottom-right (reserved corner, z-50). Ctrl/⌘+K toggles, Esc closes.
+ * "Ask METAXY" — the owner talks to the agent (text via GPT-6 Luna or live voice via GPT-Live 1),
+ * and the agent moves around the dashboard. Launcher sits bottom-right (reserved corner, z-50).
  */
 export function AgentConsole() {
-  const { state, askAssistant, confirmAction, cancelAction } = useMetaxy();
+  const { state, askAssistant, confirmAction, cancelAction, getSnapshot, pushLiveTranscript, pushLiveStep, runLiveTool } = useMetaxy();
   const { messages, busy } = state.assistant;
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState("");
   const launcherRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const threadRef = useRef<HTMLDivElement>(null);
+
+  const live = useLiveVoice({ getSnapshot, pushLiveTranscript, pushLiveStep, runLiveTool });
 
   // keyboard: Ctrl/⌘+K toggles, Esc closes and hands focus back to the launcher
   useEffect(() => {
@@ -45,7 +48,7 @@ export function AgentConsole() {
   useEffect(() => {
     const el = threadRef.current;
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-  }, [messages.length, busy, open]);
+  }, [messages.length, busy, open, live.status]);
 
   const submit = (text: string) => {
     if (!text.trim() || busy) return;
@@ -59,6 +62,14 @@ export function AgentConsole() {
   const close = () => {
     setOpen(false);
     launcherRef.current?.focus();
+  };
+
+  const toggleLive = () => {
+    if (live.status === "live" || live.status === "connecting") {
+      live.disconnect();
+    } else {
+      void live.connect();
+    }
   };
 
   return (
@@ -75,8 +86,16 @@ export function AgentConsole() {
           open && "max-sm:hidden",
         )}
       >
-        {open ? <X className="size-4" /> : <Sparkles className="size-4 text-accent" />}
-        <span className="text-xs font-bold uppercase tracking-widest">{open ? "Close" : "Ask METAXY"}</span>
+        {open ? (
+          <X className="size-4" />
+        ) : live.status === "live" ? (
+          <Radio className="size-4 animate-pulse text-emerald-400" />
+        ) : (
+          <Sparkles className="size-4 text-accent" />
+        )}
+        <span className="text-xs font-bold uppercase tracking-widest">
+          {open ? "Close" : live.status === "live" ? "Live · METAXY" : "Ask METAXY"}
+        </span>
         {!open ? <kbd className="hidden rounded-sm border border-background/30 px-1 font-mono text-[10px] text-background/70 sm:inline">Ctrl K</kbd> : null}
         {!open && pendingConfirms(messages) ? <span className="absolute -top-1 -right-1 size-3 rounded-full border-2 border-background bg-[var(--warning)]" aria-label="Waiting for your confirmation" /> : null}
       </button>
@@ -90,20 +109,69 @@ export function AgentConsole() {
         >
           <header className="flex shrink-0 items-center justify-between border-b border-border px-3 py-2">
             <div className="flex items-center gap-2">
-              <div className="size-2.5 bg-accent" aria-hidden />
+              <div className={cn("size-2.5", live.status === "live" ? "animate-pulse rounded-full bg-emerald-500" : "bg-accent")} aria-hidden />
               <h2 className="text-xs font-bold uppercase tracking-tight">Ask METAXY</h2>
               <MonoLabel className="text-muted-foreground">Agents prepare · you decide</MonoLabel>
             </div>
-            <button type="button" onClick={close} className="grid size-7 cursor-pointer place-items-center rounded-sm text-muted-foreground hover:bg-secondary hover:text-foreground" aria-label="Close console">
-              <X className="size-4" />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={toggleLive}
+                disabled={live.status === "connecting"}
+                title={live.status === "live" ? "End live voice session" : "Start live voice with GPT-Live 1"}
+                className={cn(
+                  "flex h-7 cursor-pointer items-center gap-1 rounded-sm border px-2 font-mono text-[10px] font-bold uppercase transition-colors disabled:cursor-wait disabled:opacity-60",
+                  live.status === "live"
+                    ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                    : live.status === "connecting"
+                      ? "border-accent/50 bg-accent/10 text-accent"
+                      : "border-border text-muted-foreground hover:bg-secondary hover:text-foreground",
+                )}
+              >
+                {live.status === "live" ? <PhoneOff className="size-3" /> : <Mic className="size-3" />}
+                <span>{live.status === "live" ? "End" : live.status === "connecting" ? "Linking…" : "Go Live"}</span>
+              </button>
+              <button type="button" onClick={close} className="grid size-7 cursor-pointer place-items-center rounded-sm text-muted-foreground hover:bg-secondary hover:text-foreground" aria-label="Close console">
+                <X className="size-4" />
+              </button>
+            </div>
           </header>
+
+          {live.status === "live" || live.status === "connecting" ? (
+            <div className="flex shrink-0 items-center justify-between gap-2 border-b border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-[11px]">
+              <div className="flex min-w-0 items-center gap-1.5">
+                <Radio className="size-3.5 shrink-0 animate-pulse text-emerald-600 dark:text-emerald-400" />
+                <span className="truncate font-medium">
+                  {live.status === "connecting"
+                    ? "Connecting GPT-Live 1 voice…"
+                    : `Live voice · ${live.models?.live ?? "gpt-live-1"} + ${live.models?.backend ?? "gpt-6-luna"}`}
+                </span>
+              </div>
+              {live.status === "live" ? (
+                <button
+                  type="button"
+                  onClick={live.toggleMute}
+                  className="flex shrink-0 cursor-pointer items-center gap-1 rounded-sm border border-border bg-background/80 px-2 py-0.5 font-mono text-[10px] uppercase hover:bg-background"
+                >
+                  {live.muted ? <MicOff className="size-3 text-[var(--warning)]" /> : <Mic className="size-3" />}
+                  <span>{live.muted ? "Muted" : "Mute"}</span>
+                </button>
+              ) : null}
+            </div>
+          ) : live.status === "error" && live.error ? (
+            <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--warning)]/40 bg-[var(--warning)]/10 px-3 py-1.5 text-[11px] text-[var(--warning)]">
+              <span className="min-w-0 truncate">{live.error}</span>
+              <button type="button" onClick={() => void live.connect()} className="shrink-0 cursor-pointer font-mono text-[10px] font-bold uppercase underline">
+                Retry
+              </button>
+            </div>
+          ) : null}
 
           <div ref={threadRef} className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3" aria-live="polite">
             {messages.length === 0 ? (
               <div className="space-y-3">
                 <p className="text-xs leading-relaxed text-muted-foreground">
-                  Ask me about the business, or tell me where to go. I&apos;ll move around the dashboard and prepare the work. Anything sent to a customer or binding waits for your confirm.
+                  Ask me about the business, or hit <span className="font-semibold text-foreground">Go Live</span> to talk in real time. I&apos;ll move around the dashboard and prepare the work. Anything sent to a customer or binding waits for your confirm.
                 </p>
                 <div>
                   <MonoLabel className="text-muted-foreground">Try</MonoLabel>
@@ -177,6 +245,13 @@ function pendingConfirms(messages: AssistantMsg[]) {
   return messages.some((m) => m.role === "confirm" && m.status === "pending");
 }
 
+function engineLabel(engine: Extract<AssistantMsg, { role: "assistant" }>["engine"]) {
+  if (engine === "openai-live") return "GPT-Live 1";
+  if (engine === "openai") return "GPT-6 Luna";
+  if (engine === "grok") return "Grok";
+  return "Offline engine";
+}
+
 function Message({ m, busy, onConfirm, onCancel }: { m: AssistantMsg; busy: boolean; onConfirm: (id: number) => void; onCancel: (id: number) => void }) {
   if (m.role === "user") {
     return (
@@ -189,9 +264,7 @@ function Message({ m, busy, onConfirm, onCancel }: { m: AssistantMsg; busy: bool
     return (
       <div className="max-w-[92%] space-y-1">
         <div className="rounded border border-border bg-secondary/60 px-3 py-2 text-xs leading-relaxed whitespace-pre-line">{m.text}</div>
-        {m.engine ? (
-          <MonoLabel className="px-1 text-muted-foreground">{m.engine === "openai" ? "OpenAI" : m.engine === "grok" ? "Grok" : "Offline engine"}</MonoLabel>
-        ) : null}
+        {m.engine ? <MonoLabel className="px-1 text-muted-foreground">{engineLabel(m.engine)}</MonoLabel> : null}
       </div>
     );
   }

@@ -79,8 +79,17 @@ type ChatProvider = {
 };
 
 const XAI_URL = "https://api.x.ai/v1/chat/completions";
-const openaiUrl = () => `${(process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/+$/, "")}/chat/completions`;
-const supportsTemperature = (model: string) => !/^(o[134]|gpt-5)/i.test(model);
+const openaiResponsesUrl = () => `${(process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/+$/, "")}/responses`;
+const supportsReasoningEffort = (model: string) => /^(o[134]|gpt-5|gpt-6)/i.test(model);
+
+function resolveOpenAIReasoning(model: string): "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | null {
+  if (!supportsReasoningEffort(model)) return null;
+  const raw = process.env.OPENAI_REASONING_EFFORT?.trim().toLowerCase();
+  if (raw === "none" || raw === "minimal" || raw === "low" || raw === "medium" || raw === "high" || raw === "xhigh" || raw === "max") {
+    return raw;
+  }
+  return "high";
+}
 
 function stripJsonFences(raw: string): string {
   const trimmed = raw.trim();
@@ -88,13 +97,13 @@ function stripJsonFences(raw: string): string {
   return fenced ? fenced[1] : trimmed;
 }
 
-async function chatCompletion(provider: ChatProvider, messages: { role: string; content: string }[], json: boolean): Promise<string> {
+async function xaiChatCompletion(provider: ChatProvider, messages: { role: string; content: string }[], json: boolean): Promise<string> {
   const res = await fetch(provider.url, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${provider.apiKey}` },
     body: JSON.stringify({
       model: provider.model,
-      ...(supportsTemperature(provider.model) ? { temperature: 0.4 } : {}),
+      temperature: 0.4,
       messages,
       ...(json ? { response_format: { type: "json_object" } } : {}),
     }),
@@ -103,6 +112,41 @@ async function chatCompletion(provider: ChatProvider, messages: { role: string; 
   if (!res.ok) throw new Error(`${provider.label} ${res.status}: ${(await res.text()).slice(0, 200)}`);
   const data = await res.json();
   return String(data.choices?.[0]?.message?.content ?? "");
+}
+
+async function openaiResponseCompletion(instructions: string, userInput: string, json: boolean): Promise<string> {
+  const model = process.env.OPENAI_MODEL?.trim() || "gpt-6-luna";
+  const effort = resolveOpenAIReasoning(model);
+  const omitTemp = effort !== null && effort !== "none";
+
+  const res = await fetch(openaiResponsesUrl(), {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.OPENAI_API_KEY ?? ""}` },
+    body: JSON.stringify({
+      model,
+      ...(effort ? { reasoning: { effort } } : {}),
+      ...(!omitTemp ? { temperature: 0.4 } : {}),
+      ...(json ? { text: { format: { type: "json_object" } } } : {}),
+      instructions,
+      input: [{ role: "user", content: userInput }],
+    }),
+    signal: AbortSignal.timeout(45_000),
+  });
+  if (!res.ok) throw new Error(`OpenAI ${res.status}: ${(await res.text()).slice(0, 200)}`);
+
+  const data = (await res.json()) as {
+    output?: { type?: string; content?: { type?: string; text?: string }[] }[];
+    output_text?: string;
+  };
+  const texts: string[] = [];
+  for (const item of data.output ?? []) {
+    if (item.type === "message" && Array.isArray(item.content)) {
+      for (const part of item.content) {
+        if (part.type === "output_text" && typeof part.text === "string" && part.text) texts.push(part.text);
+      }
+    }
+  }
+  return (texts.join("\n") || String(data.output_text ?? "")).trim();
 }
 
 const UNDERSTAND_SYSTEM = `You extract structured intent from a WhatsApp message sent to ${business.name} (a South African student-freelancer design & web studio).
@@ -115,55 +159,63 @@ Today is Friday 2026-11-13. Return ONLY JSON:
 If the user asks to write, edit, or complete university coursework/assignments/exams, return intent "academic_integrity".
 If an existing client asks for extra deliverables beyond their agreed scope, return intent "scope_change".`;
 
-function makeLlmBrain(engine: "openai" | "grok", getProvider: () => ChatProvider): Brain {
-  return {
-    engine,
-    async understand(text) {
-      const raw = await chatCompletion(
-        getProvider(),
-        [
-          { role: "system", content: UNDERSTAND_SYSTEM },
-          { role: "user", content: text },
-        ],
-        true,
-      );
-      const parsed = JSON.parse(stripJsonFences(raw)) as Understanding;
-      if (!parsed.items?.length) parsed.items = mockUnderstand(text).items;
-      if (!parsed.intent) parsed.intent = mockUnderstand(text).intent;
-      return parsed;
-    },
-    async compose(ctx) {
-      const system = `You are Client Desk / Books / Planner for ${business.name} (owner ${business.owner}, ${business.degree} in ${business.area}).
+const COMPOSE_SYSTEM = `You are Client Desk / Books / Planner for ${business.name} (owner ${business.owner}, ${business.degree} in ${business.area}).
 Style: crisp, warm, honest, brief (max 4 sentences), South African English, ZAR amounts.
 Studio policies:\n${policies.map((p) => `- ${p.code}: ${p.rule}`).join("\n")}
 Available packages: ${Object.entries(catalog).map(([k, v]) => `${k} ${rand(v.price)}`).join(", ")}.
 Never invent dates, prices, or promises: only use facts from CONTEXT. If CONTEXT.kind is "academic_refusal", firmly refuse coursework help.`;
-      const raw = await chatCompletion(
-        getProvider(),
-        [
-          { role: "system", content: system },
-          { role: "user", content: `CONTEXT:\n${JSON.stringify(ctx)}\n\nDraft the WhatsApp message.` },
-        ],
-        false,
-      );
-      return raw.trim();
-    },
-  };
-}
 
-export const openaiBrain: Brain = makeLlmBrain("openai", () => ({
-  label: "OpenAI",
-  url: openaiUrl(),
-  apiKey: process.env.OPENAI_API_KEY ?? "",
-  model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-}));
+export const openaiBrain: Brain = {
+  engine: "openai",
+  async understand(text) {
+    // OpenAI Responses API requires the word "json" inside input when text.format is json_object
+    const raw = await openaiResponseCompletion(UNDERSTAND_SYSTEM, `Extract JSON intent from this customer message:\n${text}`, true);
+    const parsed = JSON.parse(stripJsonFences(raw)) as Understanding;
+    if (!parsed.items?.length) parsed.items = mockUnderstand(text).items;
+    if (!parsed.intent) parsed.intent = mockUnderstand(text).intent;
+    return parsed;
+  },
+  async compose(ctx) {
+    const raw = await openaiResponseCompletion(COMPOSE_SYSTEM, `CONTEXT:\n${JSON.stringify(ctx)}\n\nDraft the WhatsApp message.`, false);
+    return raw.trim();
+  },
+};
 
-export const grokBrain: Brain = makeLlmBrain("grok", () => ({
+const getGrokProvider = (): ChatProvider => ({
   label: "xAI",
   url: XAI_URL,
   apiKey: process.env.XAI_API_KEY ?? "",
   model: process.env.GROK_MODEL || "grok-4",
-}));
+});
+
+export const grokBrain: Brain = {
+  engine: "grok",
+  async understand(text) {
+    const raw = await xaiChatCompletion(
+      getGrokProvider(),
+      [
+        { role: "system", content: UNDERSTAND_SYSTEM },
+        { role: "user", content: text },
+      ],
+      true,
+    );
+    const parsed = JSON.parse(stripJsonFences(raw)) as Understanding;
+    if (!parsed.items?.length) parsed.items = mockUnderstand(text).items;
+    if (!parsed.intent) parsed.intent = mockUnderstand(text).intent;
+    return parsed;
+  },
+  async compose(ctx) {
+    const raw = await xaiChatCompletion(
+      getGrokProvider(),
+      [
+        { role: "system", content: COMPOSE_SYSTEM },
+        { role: "user", content: `CONTEXT:\n${JSON.stringify(ctx)}\n\nDraft the WhatsApp message.` },
+      ],
+      false,
+    );
+    return raw.trim();
+  },
+};
 
 export function getBrain(): Brain {
   const pref = process.env.LLM_PROVIDER?.trim().toLowerCase();

@@ -7,6 +7,7 @@ import type { AgentEvent, AgentResponse, AgentRole, Approval, ComplianceNudge, C
 import { confirmFor, describeAction, taskLabel } from "@/lib/assistant/describe";
 import { route } from "@/lib/assistant/router";
 import { isAskFirst, type AssistantResponse, type ConfirmCard, type HistoryItem, type Snapshot, type UiAction } from "@/lib/assistant/types";
+import { validate } from "@/lib/assistant/validate";
 import { complianceTasks, currentVault } from "@/lib/compliance/data";
 import { defaultAutomations, seedInvoices, seedProjects, seedThreads } from "@/lib/whatsapp/data";
 
@@ -27,8 +28,8 @@ export type UiState = {
 export type ConfirmStatus = "pending" | "running" | "confirmed" | "cancelled";
 
 export type AssistantMsg =
-  | { id: number; role: "user"; text: string }
-  | { id: number; role: "assistant"; text: string; engine?: AssistantResponse["engine"] }
+  | { id: number; role: "user"; text: string; turnKey?: string }
+  | { id: number; role: "assistant"; text: string; engine?: AssistantResponse["engine"] | "openai-live"; turnKey?: string }
   /** a UI action that actually ran ("→ Opened Compliance › CIPC") */
   | { id: number; role: "step"; text: string; tone: "ok" | "warn" }
   | { id: number; role: "confirm"; card: ConfirmCard; status: ConfirmStatus };
@@ -112,6 +113,7 @@ type Action =
   | { type: "reset" }
   | { type: "ui"; patch: Partial<UiState> }
   | { type: "assistant_msg"; msg: AssistantMsgInput }
+  | { type: "live_transcript"; role: "user" | "assistant"; delta: string; turnKey: string }
   | { type: "assistant_busy"; busy: boolean }
   | { type: "confirm_status"; id: number; status: ConfirmStatus };
 
@@ -157,6 +159,19 @@ function reducer(s: State, a: Action): State {
       return { ...s, ui: { ...s.ui, ...a.patch } };
     case "assistant_msg":
       return { ...s, assistant: { ...s.assistant, messages: [...s.assistant.messages, { ...a.msg, id: seq++ } as AssistantMsg] } };
+    case "live_transcript": {
+      const msgs = s.assistant.messages;
+      const last = msgs[msgs.length - 1];
+      if (last && (last.role === "user" || last.role === "assistant") && last.role === a.role && last.turnKey === a.turnKey) {
+        const updated = { ...last, text: `${last.text}${a.delta}` };
+        return { ...s, assistant: { ...s.assistant, messages: [...msgs.slice(0, -1), updated] } };
+      }
+      const nextMsg: AssistantMsg =
+        a.role === "assistant"
+          ? { id: seq++, role: "assistant", text: a.delta, engine: "openai-live", turnKey: a.turnKey }
+          : { id: seq++, role: "user", text: a.delta, turnKey: a.turnKey };
+      return { ...s, assistant: { ...s.assistant, messages: [...msgs, nextMsg] } };
+    }
     case "assistant_busy":
       return { ...s, assistant: { ...s.assistant, busy: a.busy } };
     case "confirm_status":
@@ -299,6 +314,11 @@ type Ctx = {
   askAssistant: (text: string) => Promise<void>;
   confirmAction: (messageId: number) => Promise<void>;
   cancelAction: (messageId: number) => void;
+  /* live voice (gpt-live-1) */
+  getSnapshot: () => Snapshot;
+  pushLiveTranscript: (role: "user" | "assistant", delta: string, turnKey: string) => void;
+  pushLiveStep: (text: string, tone?: "ok" | "warn") => void;
+  runLiveTool: (name: string, args: Record<string, unknown>) => Promise<Record<string, unknown>>;
 };
 
 const StoreCtx = createContext<Ctx | null>(null);
@@ -572,6 +592,48 @@ export function MetaxyProvider({ children }: { children: ReactNode }) {
       step("Cancelled. Nothing was sent or changed", "warn");
     };
 
+    const getSnapshot = () => buildSnapshot(stateRef.current);
+
+    const pushLiveTranscript = (role: "user" | "assistant", delta: string, turnKey: string) => {
+      if (!delta) return;
+      dispatch({ type: "live_transcript", role, delta, turnKey });
+    };
+
+    const pushLiveStep = (text: string, tone: "ok" | "warn" = "ok") => step(text, tone);
+
+    const runLiveTool = async (name: string, args: Record<string, unknown>): Promise<Record<string, unknown>> => {
+      const snap = buildSnapshot(stateRef.current);
+      if (name === "get_dashboard_state") {
+        return { ok: true, state: snap };
+      }
+      const action = validate(name, args, snap);
+      if (!action) {
+        return { ok: false, error: `Invalid arguments or unknown id for "${name}". Check state ids before retrying.`, state: snap };
+      }
+      if (isAskFirst(action)) {
+        const card = confirmFor([action], snap);
+        if (card) {
+          say({ role: "confirm", card, status: "pending" });
+          return {
+            ok: true,
+            status: "awaiting_owner_confirmation",
+            title: card.title,
+            effects: card.effects,
+            message: "Confirmation card placed on screen. Ask the owner to click Confirm.",
+            state: buildSnapshot(stateRef.current),
+          };
+        }
+        return { ok: false, error: "Nothing pending to confirm.", state: snap };
+      }
+      await execute([action], false);
+      await settle();
+      return {
+        ok: true,
+        executed: describeAction(action, snap),
+        state: buildSnapshot(stateRef.current),
+      };
+    };
+
     return {
       setTab,
       reset: () => dispatch({ type: "reset" }),
@@ -593,6 +655,10 @@ export function MetaxyProvider({ children }: { children: ReactNode }) {
       askAssistant,
       confirmAction,
       cancelAction,
+      getSnapshot,
+      pushLiveTranscript,
+      pushLiveStep,
+      runLiveTool,
     };
   }, [play]);
 
