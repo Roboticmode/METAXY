@@ -6,6 +6,7 @@ import { detectCollisions, formatDate, rand } from "@/lib/agent/tools";
 import type { Invoice, Project } from "@/lib/agent/types";
 import { useMetaxy } from "@/lib/store";
 import { Badge, Btn, MonoLabel, Panel, cn } from "@/components/ui";
+import { ThinkingOrb } from "@/components/ui/thinking-orbs";
 
 const projectTone: Record<Project["status"], "ok" | "warn" | "block" | "info" | "neutral"> = {
   scoping: "neutral",
@@ -210,7 +211,21 @@ export function OperationsBoard() {
       </div>
 
       <div className="min-w-0 space-y-3 md:space-y-4 xl:col-span-2">
-        <Panel id="ops-activity" title="Agent activity" code="AGENT" right={state.busy ? <Badge tone="info">working</Badge> : <Badge>idle</Badge>}>
+        <Panel
+          id="ops-activity"
+          title="Agent activity"
+          code="AGENT"
+          right={
+            state.busy ? (
+              <span className="inline-flex items-center gap-1.5">
+                <ThinkingOrb state={state.preparing ? "shaping" : "searching"} size={20} theme="light" color="#10b981" aria-hidden />
+                <Badge tone="info">working</Badge>
+              </span>
+            ) : (
+              <Badge>idle</Badge>
+            )
+          }
+        >
           {state.trace.length === 0 ? (
             <p className="text-xs text-muted-foreground">Every tool call by Client Desk, Books, and Planner shows up here so you can verify it.</p>
           ) : (

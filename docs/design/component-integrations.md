@@ -81,25 +81,28 @@ export default function ThinkingOrbThinkingDemo() {
 1. **Data / Props:**
    - `state`: `"working" | "searching" | "solving" | "listening" | "composing" | "shaping" | "connecting" | "weaving" | "breathing"`
    - `size`: `64` (chat-avatar scale), `32` (compact badge/header scale), `20` (inline-text scale — hand-tuned dot counts & speeds)
-   - `theme`: `"auto"` (default — watches `data-theme`, `.dark`/`.light`, and `prefers-color-scheme`) or pinned `"dark"` / `"light"`
-   - `color` *(optional)*: tint hex/rgb preserving 3D depth shading (e.g., METAXY emerald `#10b981`)
+   - `theme`: `"auto"` (watches `data-theme`, `.dark`/`.light`, and `prefers-color-scheme`) or pinned `"dark"` / `"light"`. **METAXY note:** [`layout.tsx`](../../src/app/layout.tsx) pins `colorScheme: "light"` on `:root`, so pass `theme="light"` on light cards/bubbles (avoids white-on-white dots on macOS Dark Mode) and `theme="dark"` on dark floating pills or `--accent` buttons.
+   - `color` *(optional)*: tint hex/rgb preserving 3D depth shading (e.g., METAXY emerald `#10b981` / `#059669`)
    - `paused` / `speed`: freeze or modulate animation speed
 2. **State Management & METAXY Agent-State Mapping:**
-   - Map `state.assistant.busy` (`src/components/agent-console/agent-console.tsx`) and `state.busy` / active `AgentEvent` (`src/lib/store.tsx`) to semantic orb states:
-     - `working` → default active tool run (`AgentConsole` `busy` pill, `OperationsBoard` `AGENT` panel header)
-     - `searching` → `Planner` scanning university + studio calendar (`check_capacity`, `scan_commitments`) or `Books` scanning invoice ledger (`scan_ledger`)
-     - `solving` → resolving deadline collision or pricing scope-creep add-on (`propose_fix`, `compare_deliverables`, `draft_addon_quote`)
-     - `composing` → `Client Desk` / `Books` drafting WhatsApp reply or EFT reminder (`compose_reply`, `WhatsAppPanel` `agent working…`)
-     - `shaping` → `Books` preparing a compliance document pack (`compliance_prepare` / `preparing === task.id`)
-     - `listening` → voice input / incoming client message triage (`understand_message`)
+   - Map `state.assistant.busy`, `useLiveVoice().status`, and `state.busy` / `state.preparing` (`src/lib/store.tsx`) to semantic orb states:
+     - `working` → default active tool run (`AgentConsole` `busy` pill & launcher badge)
+     - `connecting` → `GPT-Live 1` WebRTC voice handshake (`live.status === "connecting"`)
+     - `listening` / `breathing` → `GPT-Live 1` live voice open / muted (`live.status === "live"`)
+     - `searching` → `Planner` / `Books` scanning calendar or invoice ledger (`OperationsBoard` `AGENT` header)
+     - `solving` → active tool execution during a live voice turn (`live.status === "live" && busy`)
+     - `composing` → `Client Desk` / `Books` drafting WhatsApp reply (`WhatsAppPanel` `agent composing…` bubble & `AgentConsole` empty state)
+     - `shaping` → `Books` preparing a compliance document pack (`ComplianceBoard` `Prepare with agent` button & `state.preparing`)
 3. **Assets & Icons:**
    - Canvas is pure client-side (`"use client"` required for Next.js App Router). Zero external images or SVG assets needed; pair with `lucide-react` icons only for surrounding controls/badges.
 4. **Responsive Behaviour:**
-   - Use `size={20}` inside inline status pills (`AgentConsole` `working…` line, `OperationsBoard` `AGENT` header, `WhatsAppPanel` typing bubble) so layout never shifts on mobile (`375 px`) or desktop.
-   - Use `size={64}` (or `size={32}`) inside empty-state welcome headers or featured status banners.
-5. **Best Places to Integrate:**
-   - **Primary:** [src/components/agent-console/agent-console.tsx](../../src/components/agent-console/agent-console.tsx) — replace the pulsing `size-1.5` dot in the `busy` indicator (and optionally launcher badge when active) with `<ThinkingOrb state={orbState} size={20} theme="auto" />`.
-   - **Secondary:** [src/components/operations-board.tsx](../../src/components/operations-board.tsx) (`AGENT` panel header while `state.busy`) and [src/components/whatsapp-panel.tsx](../../src/components/whatsapp-panel.tsx) (`agent working…` bubble using `state="composing"`).
+   - Use `size={20}` inside inline status pills (`AgentConsole` launcher & `working…` line, `OperationsBoard` `AGENT` header, `WhatsAppPanel` typing bubble, `ComplianceBoard` button) so layout never shifts on mobile (`375 px`) or desktop.
+   - Use `size={32}` or `size={64}` inside empty-state welcome headers (`AgentConsole` ready card) or hero docks (`/heroes`).
+5. **Integrated Places in METAXY:**
+   - **Primary:** [src/components/agent-console/agent-console.tsx](../../src/components/agent-console/agent-console.tsx) — live in the floating launcher pill, `GPT-Live 1` voice status banner, empty-state ready card (`size={32}`), and `working…` indicator (`size={20}`).
+   - **Operations:** [src/components/operations-board.tsx](../../src/components/operations-board.tsx) — `AGENT` panel header while `state.busy` (`searching` / `shaping`).
+   - **WhatsApp:** [src/components/whatsapp-panel.tsx](../../src/components/whatsapp-panel.tsx) — `agent composing…` bubble (`state="composing"`, `theme="light"`).
+   - **Compliance:** [src/components/compliance-board.tsx](../../src/components/compliance-board.tsx) — `Prepare with agent` button while `preparing` (`state="shaping"`, `theme="dark"`).
 
 ---
 

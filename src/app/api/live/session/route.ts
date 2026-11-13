@@ -59,6 +59,12 @@ LIVE VOICE MODE:
       session: {
         model: liveModel,
         instructions: LIVE_VOICE_INSTRUCTIONS,
+        client: {
+          data_channel: {
+            allowed_client_events: "all",
+            allowed_server_events: "all",
+          },
+        },
         delegation: {
           type: "responses",
           responses: {

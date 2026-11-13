@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { ArrowRight, Check, Mic, MicOff, PhoneOff, Radio, Send, ShieldAlert, Sparkles, X } from "lucide-react";
+import { ArrowRight, Check, Mic, MicOff, PhoneOff, Send, ShieldAlert, Sparkles, X } from "lucide-react";
 import { SUGGESTED_PROMPTS } from "@/lib/assistant/types";
 import { useMetaxy, type AssistantMsg } from "@/lib/store";
 import { Badge, Btn, MonoLabel, cn } from "@/components/ui";
+import { ThinkingOrb } from "@/components/ui/thinking-orbs";
 import { useLiveVoice } from "./use-live-voice";
 
 /**
@@ -12,7 +13,7 @@ import { useLiveVoice } from "./use-live-voice";
  * and the agent moves around the dashboard. Launcher sits bottom-right (reserved corner, z-50).
  */
 export function AgentConsole() {
-  const { state, askAssistant, confirmAction, cancelAction, getSnapshot, pushLiveTranscript, pushLiveStep, runLiveTool } = useMetaxy();
+  const { state, askAssistant, confirmAction, cancelAction, getSnapshot, pushLiveTranscript, pushLiveMessage, pushLiveStep, runLiveTool } = useMetaxy();
   const { messages, busy } = state.assistant;
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState("");
@@ -20,7 +21,7 @@ export function AgentConsole() {
   const inputRef = useRef<HTMLInputElement>(null);
   const threadRef = useRef<HTMLDivElement>(null);
 
-  const live = useLiveVoice({ getSnapshot, pushLiveTranscript, pushLiveStep, runLiveTool });
+  const live = useLiveVoice({ getSnapshot, pushLiveTranscript, pushLiveMessage, pushLiveStep, runLiveTool });
 
   // keyboard: Ctrl/⌘+K toggles, Esc closes and hands focus back to the launcher
   useEffect(() => {
@@ -53,6 +54,7 @@ export function AgentConsole() {
   const submit = (text: string) => {
     if (!text.trim() || busy) return;
     setDraft("");
+    if (live.status === "live" && live.sendTextTurn(text)) return;
     void askAssistant(text);
   };
   const onSubmit = (e: FormEvent) => {
@@ -88,8 +90,14 @@ export function AgentConsole() {
       >
         {open ? (
           <X className="size-4" />
-        ) : live.status === "live" ? (
-          <Radio className="size-4 animate-pulse text-emerald-400" />
+        ) : live.status === "live" || live.status === "connecting" || busy ? (
+          <ThinkingOrb
+            state={live.status === "live" ? (live.muted ? "breathing" : "listening") : live.status === "connecting" ? "connecting" : "working"}
+            size={20}
+            theme="dark"
+            color="#10b981"
+            aria-hidden
+          />
         ) : (
           <Sparkles className="size-4 text-accent" />
         )}
@@ -140,14 +148,22 @@ export function AgentConsole() {
           {live.status === "live" || live.status === "connecting" ? (
             <div className="flex shrink-0 items-center justify-between gap-2 border-b border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-[11px]">
               <div className="flex min-w-0 items-center gap-1.5">
-                <Radio className="size-3.5 shrink-0 animate-pulse text-emerald-600 dark:text-emerald-400" />
+                <ThinkingOrb
+                  state={live.status === "connecting" ? "connecting" : live.muted ? "breathing" : "listening"}
+                  size={20}
+                  theme="light"
+                  color="#059669"
+                  aria-hidden
+                />
                 <span className="truncate font-medium">
                   {live.status === "connecting"
-                    ? "Connecting GPT-Live 1 voice…"
-                    : `Live voice · ${live.models?.live ?? "gpt-live-1"} + ${live.models?.backend ?? "gpt-6-luna"}`}
+                    ? "Connecting GPT-Live 1…"
+                    : live.audioMode === "text-only"
+                      ? `Live (Text → Voice) · ${live.models?.live ?? "gpt-live-1"}`
+                      : `Live voice · ${live.models?.live ?? "gpt-live-1"} + ${live.models?.backend ?? "gpt-6-luna"}`}
                 </span>
               </div>
-              {live.status === "live" ? (
+              {live.status === "live" && live.audioMode === "mic" ? (
                 <button
                   type="button"
                   onClick={live.toggleMute}
@@ -156,6 +172,8 @@ export function AgentConsole() {
                   {live.muted ? <MicOff className="size-3 text-[var(--warning)]" /> : <Mic className="size-3" />}
                   <span>{live.muted ? "Muted" : "Mute"}</span>
                 </button>
+              ) : live.status === "live" ? (
+                <MonoLabel className="shrink-0 text-emerald-700 dark:text-emerald-300">Type below</MonoLabel>
               ) : null}
             </div>
           ) : live.status === "error" && live.error ? (
@@ -170,8 +188,25 @@ export function AgentConsole() {
           <div ref={threadRef} className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3" aria-live="polite">
             {messages.length === 0 ? (
               <div className="space-y-3">
+                <div className="flex items-center gap-2.5 rounded border border-border bg-secondary/50 px-2.5 py-2">
+                  <ThinkingOrb
+                    state={live.status === "live" ? "listening" : live.status === "connecting" ? "connecting" : "composing"}
+                    size={32}
+                    theme="light"
+                    color="#10b981"
+                    aria-hidden
+                  />
+                  <div className="min-w-0">
+                    <MonoLabel className="block text-foreground">
+                      {live.status === "live" ? "Listening live" : "Ready"}
+                    </MonoLabel>
+                    <p className="text-[11px] leading-snug text-muted-foreground">
+                      Ask below or hit <span className="font-semibold text-foreground">Go Live</span> to talk in real time.
+                    </p>
+                  </div>
+                </div>
                 <p className="text-xs leading-relaxed text-muted-foreground">
-                  Ask me about the business, or hit <span className="font-semibold text-foreground">Go Live</span> to talk in real time. I&apos;ll move around the dashboard and prepare the work. Anything sent to a customer or binding waits for your confirm.
+                  I&apos;ll move around the dashboard and prepare the work. Anything sent to a customer or binding waits for your confirm.
                 </p>
                 <div>
                   <MonoLabel className="text-muted-foreground">Try</MonoLabel>
@@ -195,8 +230,8 @@ export function AgentConsole() {
               messages.map((m) => <Message key={m.id} m={m} busy={busy} onConfirm={confirmAction} onCancel={cancelAction} />)
             )}
             {busy ? (
-              <div className="flex items-center gap-1.5 px-1 py-1 text-muted-foreground" aria-label="METAXY is working">
-                <span className="size-1.5 animate-pulse rounded-full bg-accent" />
+              <div className="flex items-center gap-2 px-1 py-1 text-muted-foreground" aria-label="METAXY is working">
+                <ThinkingOrb state={live.status === "live" ? "solving" : "working"} size={20} theme="light" color="#10b981" aria-hidden />
                 <MonoLabel>working…</MonoLabel>
               </div>
             ) : null}

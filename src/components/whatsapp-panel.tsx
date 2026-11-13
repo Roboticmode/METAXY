@@ -5,6 +5,7 @@ import { Send, RotateCcw, MessageCircle, Bot, Pause, Play } from "lucide-react";
 import { business, initialCustomers, newCustomer, presetMessages } from "@/lib/agent/data";
 import { useMetaxy } from "@/lib/store";
 import { Badge, Btn, MonoLabel, cn } from "@/components/ui";
+import { ThinkingOrb } from "@/components/ui/thinking-orbs";
 
 const ownerFirst = business.owner.split(" ")[0];
 
@@ -99,7 +100,10 @@ export function WhatsAppPanel({ headerAction }: { headerAction?: ReactNode }) {
         })}
         {state.busy && !paused ? (
           <div className="flex justify-end">
-            <div className="rounded-lg bg-[#d9fdd3] px-3 py-2 text-xs text-muted-foreground">agent working…</div>
+            <div className="inline-flex items-center gap-2 rounded-lg bg-[#d9fdd3] px-3 py-1.5 text-xs text-muted-foreground shadow-sm">
+              <ThinkingOrb state="composing" size={20} theme="light" color="#059669" aria-hidden />
+              <span>agent composing…</span>
+            </div>
           </div>
         ) : null}
         <div ref={endRef} />

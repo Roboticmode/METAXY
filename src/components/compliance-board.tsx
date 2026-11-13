@@ -7,6 +7,7 @@ import type { ComplianceStatus } from "@/lib/agent/types";
 import { COMPLIANCE_SOURCE, complianceTasks, currentVault, deadlines, type ComplianceTask } from "@/lib/compliance/data";
 import { useMetaxy } from "@/lib/store";
 import { Badge, Btn, MonoLabel, Panel, cn } from "@/components/ui";
+import { ThinkingOrb } from "@/components/ui/thinking-orbs";
 
 const statusMeta: Record<ComplianceStatus, { label: string; tone: "ok" | "warn" | "info" | "neutral" }> = {
   todo: { label: "to do", tone: "neutral" },
@@ -261,7 +262,8 @@ function TaskDetail({ task, docs }: { task: ComplianceTask; docs: string[] }) {
         <div className="flex flex-wrap items-center gap-2">
           {st.status === "todo" ? (
             <Btn variant="accent" disabled={!!blocker || state.busy} onClick={() => void prepareCompliance(task.id)}>
-              <Sparkles className="size-3" /> {preparing ? "Preparing…" : blocker ? `Do ${blocker.label} first` : "Prepare with agent"}
+              {preparing ? <ThinkingOrb state="shaping" size={20} theme="dark" aria-hidden /> : <Sparkles className="size-3" />}{" "}
+              {preparing ? "Preparing…" : blocker ? `Do ${blocker.label} first` : "Prepare with agent"}
             </Btn>
           ) : null}
           {st.status === "ready" ? (

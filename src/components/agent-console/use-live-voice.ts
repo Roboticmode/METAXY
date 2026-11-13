@@ -4,10 +4,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Snapshot } from "@/lib/assistant/types";
 
 export type LiveStatus = "idle" | "connecting" | "live" | "error";
+export type LiveAudioMode = "mic" | "text-only" | null;
 
 type UseLiveVoiceOpts = {
   getSnapshot: () => Snapshot;
   pushLiveTranscript: (role: "user" | "assistant", delta: string, turnKey: string) => void;
+  pushLiveMessage: (role: "user" | "assistant", text: string) => void;
   pushLiveStep: (text: string, tone?: "ok" | "warn") => void;
   runLiveTool: (name: string, args: Record<string, unknown>) => Promise<Record<string, unknown>>;
 };
@@ -52,21 +54,38 @@ function waitForIceGathering(pc: RTCPeerConnection, timeoutMs = 1500): Promise<v
   });
 }
 
-export function useLiveVoice({ getSnapshot, pushLiveTranscript, pushLiveStep, runLiveTool }: UseLiveVoiceOpts) {
+/** Creates a continuous silent audio track so WebRTC timelines advance even when mic permission is denied. */
+function createSilentAudioStream(): { stream: MediaStream; ctx: AudioContext } {
+  const ctx = new AudioContext();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  gain.gain.value = 0;
+  const dest = ctx.createMediaStreamDestination();
+  osc.connect(gain);
+  gain.connect(dest);
+  osc.start();
+  return { stream: dest.stream, ctx };
+}
+
+export function useLiveVoice({ getSnapshot, pushLiveTranscript, pushLiveMessage, pushLiveStep, runLiveTool }: UseLiveVoiceOpts) {
   const [status, setStatus] = useState<LiveStatus>("idle");
+  const [audioMode, setAudioMode] = useState<LiveAudioMode>(null);
   const [muted, setMuted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [models, setModels] = useState<{ live: string; backend: string } | null>(null);
 
-  const optsRef = useRef({ getSnapshot, pushLiveTranscript, pushLiveStep, runLiveTool });
-  optsRef.current = { getSnapshot, pushLiveTranscript, pushLiveStep, runLiveTool };
+  const optsRef = useRef({ getSnapshot, pushLiveTranscript, pushLiveMessage, pushLiveStep, runLiveTool });
+  optsRef.current = { getSnapshot, pushLiveTranscript, pushLiveMessage, pushLiveStep, runLiveTool };
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const dcRef = useRef<RTCDataChannel | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const silentCtxRef = useRef<AudioContext | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const batchesRef = useRef<Map<string, DelegationBatch>>(new Map());
   const transcriptTurnRef = useRef<{ role: "user" | "assistant"; at: number; seq: number; key: string } | null>(null);
+  const activeResponseRef = useRef(false);
+  const queuedTextsRef = useRef<string[]>([]);
 
   const cleanup = useCallback((sendClose = false) => {
     const dc = dcRef.current;
@@ -93,6 +112,11 @@ export function useLiveVoice({ getSnapshot, pushLiveTranscript, pushLiveStep, ru
       streamRef.current = null;
     }
 
+    if (silentCtxRef.current) {
+      void silentCtxRef.current.close().catch(() => {});
+      silentCtxRef.current = null;
+    }
+
     if (audioRef.current) {
       audioRef.current.srcObject = null;
       audioRef.current.remove();
@@ -104,6 +128,9 @@ export function useLiveVoice({ getSnapshot, pushLiveTranscript, pushLiveStep, ru
     }
     batchesRef.current.clear();
     transcriptTurnRef.current = null;
+    activeResponseRef.current = false;
+    queuedTextsRef.current = [];
+    setAudioMode(null);
     setMuted(false);
   }, []);
 
@@ -121,6 +148,22 @@ export function useLiveVoice({ getSnapshot, pushLiveTranscript, pushLiveStep, ru
     dc.send(JSON.stringify(payload));
     return true;
   }, []);
+
+  const dispatchTextTurn = useCallback(
+    (text: string) => {
+      activeResponseRef.current = true;
+      sendEvent({
+        type: "response.item.create",
+        item: {
+          type: "message",
+          role: "user",
+          content: [{ type: "input_text", text }],
+        },
+      });
+      sendEvent({ type: "response.create" });
+    },
+    [sendEvent],
+  );
 
   const flushBatch = useCallback(
     async (delegationId: string) => {
@@ -143,6 +186,7 @@ export function useLiveVoice({ getSnapshot, pushLiveTranscript, pushLiveStep, ru
           },
         });
       }
+      activeResponseRef.current = true;
       sendEvent({ type: "response.create" });
       batchesRef.current.delete(delegationId);
     },
@@ -169,7 +213,7 @@ export function useLiveVoice({ getSnapshot, pushLiveTranscript, pushLiveStep, ru
       switch (ev.type) {
         case "session.started":
           setStatus("live");
-          optsRef.current.pushLiveStep("Live voice connected (GPT-Live 1 + GPT-6 Luna)");
+          optsRef.current.pushLiveStep("Live session ready (GPT-Live 1 + GPT-6 Luna)");
           break;
         case "session.input_transcript.delta":
           if (typeof ev.delta === "string") appendTranscript("user", ev.delta);
@@ -181,7 +225,9 @@ export function useLiveVoice({ getSnapshot, pushLiveTranscript, pushLiveStep, ru
           const delegationId = ev.delegation_id || "default";
           const inner = ev.event;
           if (!inner) break;
-          if (inner.type === "response.output_item.done" && inner.item?.type === "function_call") {
+          if (inner.type === "response.created") {
+            activeResponseRef.current = true;
+          } else if (inner.type === "response.output_item.done" && inner.item?.type === "function_call") {
             const { call_id, name, arguments: rawArgs } = inner.item;
             if (!call_id || !name) break;
             let batch = batchesRef.current.get(delegationId);
@@ -204,11 +250,15 @@ export function useLiveVoice({ getSnapshot, pushLiveTranscript, pushLiveStep, ru
             activeBatch.fallbackTimer = setTimeout(() => {
               void flushBatch(delegationId);
             }, 1500);
-          } else if (inner.type === "response.completed") {
+          } else if (inner.type === "response.completed" || inner.type === "response.failed" || inner.type === "response.incomplete") {
             const batch = batchesRef.current.get(delegationId);
             if (batch) {
               batch.completed = true;
               void flushBatch(delegationId);
+            } else {
+              activeResponseRef.current = false;
+              const nextQueued = queuedTextsRef.current.shift();
+              if (nextQueued) dispatchTextTurn(nextQueued);
             }
           }
           break;
@@ -218,6 +268,7 @@ export function useLiveVoice({ getSnapshot, pushLiveTranscript, pushLiveStep, ru
           setStatus("idle");
           break;
         case "error": {
+          activeResponseRef.current = false;
           const msg = ev.error?.message || "Live voice session error";
           setError(msg);
           optsRef.current.pushLiveStep(`Live voice error: ${msg}`, "warn");
@@ -225,13 +276,13 @@ export function useLiveVoice({ getSnapshot, pushLiveTranscript, pushLiveStep, ru
         }
       }
     },
-    [appendTranscript, cleanup, flushBatch],
+    [appendTranscript, cleanup, dispatchTextTurn, flushBatch],
   );
 
   const connect = useCallback(async () => {
     if (status === "connecting" || status === "live") return;
-    if (typeof window === "undefined" || !navigator.mediaDevices?.getUserMedia || typeof RTCPeerConnection === "undefined") {
-      setError("Live voice requires microphone and WebRTC support in your browser.");
+    if (typeof window === "undefined" || typeof RTCPeerConnection === "undefined") {
+      setError("Live sessions require WebRTC support in your browser.");
       setStatus("error");
       return;
     }
@@ -240,16 +291,38 @@ export function useLiveVoice({ getSnapshot, pushLiveTranscript, pushLiveStep, ru
     setStatus("connecting");
 
     try {
-      const mic = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-      });
-      streamRef.current = mic;
+      let stream: MediaStream;
+      let mode: LiveAudioMode = "mic";
+
+      try {
+        if (!navigator.mediaDevices?.getUserMedia) {
+          throw new Error("Microphone API unavailable in this browser view.");
+        }
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        });
+      } catch (micErr) {
+        // Embedded webviews (like T3 Code preview) often deny getUserMedia; fall back to silent audio + typed live turns
+        const reason = micErr instanceof Error ? micErr.message : String(micErr);
+        const silent = createSilentAudioStream();
+        await silent.ctx.resume().catch(() => {});
+        silentCtxRef.current = silent.ctx;
+        stream = silent.stream;
+        mode = "text-only";
+        optsRef.current.pushLiveStep(
+          `Mic blocked (${reason}) — connected in Text-to-Voice Live mode. Type below to talk to GPT-Live 1, or open in Chrome/Safari for two-way mic.`,
+          "warn",
+        );
+      }
+
+      streamRef.current = stream;
+      setAudioMode(mode);
 
       const pc = new RTCPeerConnection();
       pcRef.current = pc;
 
-      for (const track of mic.getTracks()) {
-        pc.addTrack(track, mic);
+      for (const track of stream.getTracks()) {
+        pc.addTrack(track, stream);
       }
 
       const audioEl = document.createElement("audio");
@@ -262,6 +335,7 @@ export function useLiveVoice({ getSnapshot, pushLiveTranscript, pushLiveStep, ru
       pc.ontrack = (e) => {
         if (audioRef.current && e.streams[0]) {
           audioRef.current.srcObject = e.streams[0];
+          void audioRef.current.play().catch(() => {});
         }
       };
 
@@ -316,11 +390,27 @@ export function useLiveVoice({ getSnapshot, pushLiveTranscript, pushLiveStep, ru
       const msg = err instanceof Error ? err.message : String(err);
       setError(msg);
       setStatus("error");
-      optsRef.current.pushLiveStep(`Couldn't start live voice: ${msg}`, "warn");
+      optsRef.current.pushLiveStep(`Couldn't start live session: ${msg}`, "warn");
     }
   }, [cleanup, handleServerEvent, status]);
 
+  const sendTextTurn = useCallback(
+    (raw: string) => {
+      const text = raw.trim();
+      if (!text || status !== "live") return false;
+      optsRef.current.pushLiveMessage("user", text);
+      if (activeResponseRef.current || batchesRef.current.size > 0) {
+        queuedTextsRef.current.push(text);
+        return true;
+      }
+      dispatchTextTurn(text);
+      return true;
+    },
+    [dispatchTextTurn, status],
+  );
+
   const toggleMute = useCallback(() => {
+    if (audioMode !== "mic") return;
     const stream = streamRef.current;
     if (!stream) return;
     setMuted((prev) => {
@@ -328,15 +418,17 @@ export function useLiveVoice({ getSnapshot, pushLiveTranscript, pushLiveStep, ru
       for (const track of stream.getAudioTracks()) track.enabled = !next;
       return next;
     });
-  }, []);
+  }, [audioMode]);
 
   return {
     status,
+    audioMode,
     muted,
     error,
     models,
     connect,
     disconnect,
     toggleMute,
+    sendTextTurn,
   };
 }

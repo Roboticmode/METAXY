@@ -317,6 +317,7 @@ type Ctx = {
   /* live voice (gpt-live-1) */
   getSnapshot: () => Snapshot;
   pushLiveTranscript: (role: "user" | "assistant", delta: string, turnKey: string) => void;
+  pushLiveMessage: (role: "user" | "assistant", text: string) => void;
   pushLiveStep: (text: string, tone?: "ok" | "warn") => void;
   runLiveTool: (name: string, args: Record<string, unknown>) => Promise<Record<string, unknown>>;
 };
@@ -599,6 +600,11 @@ export function MetaxyProvider({ children }: { children: ReactNode }) {
       dispatch({ type: "live_transcript", role, delta, turnKey });
     };
 
+    const pushLiveMessage = (role: "user" | "assistant", text: string) => {
+      if (!text.trim()) return;
+      say(role === "assistant" ? { role: "assistant", text, engine: "openai-live" } : { role: "user", text });
+    };
+
     const pushLiveStep = (text: string, tone: "ok" | "warn" = "ok") => step(text, tone);
 
     const runLiveTool = async (name: string, args: Record<string, unknown>): Promise<Record<string, unknown>> => {
@@ -657,6 +663,7 @@ export function MetaxyProvider({ children }: { children: ReactNode }) {
       cancelAction,
       getSnapshot,
       pushLiveTranscript,
+      pushLiveMessage,
       pushLiveStep,
       runLiveTool,
     };
