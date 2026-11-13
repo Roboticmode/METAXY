@@ -63,6 +63,19 @@
   --color-warning-foreground: var(--warning-foreground);
   --color-success: var(--success);
   --color-info: var(--info);
+  --color-paper: var(--paper);
+  --color-paper-2: var(--paper-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-hairline: var(--hairline);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-strong: var(--accent-strong);
+  --color-warning-ink: var(--warning-ink);
+  --color-info-ink: var(--info-ink);
+  --color-destructive-ink: var(--destructive-ink);
+  --shadow-soft: var(--shadow-soft-value);
+  --shadow-lift: var(--shadow-lift-value);
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -104,6 +117,26 @@
   --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
   --sidebar-border: oklch(0.929 0.013 255.508);
   --sidebar-ring: oklch(0.704 0.04 256.788);
+
+  /*
+   * Brand palette, shared by the landing page and the command centre.
+   * Paper = warm off-white surfaces; ink = the hero's night, used for dark bands.
+   */
+  --paper: oklch(0.965 0.008 95);
+  --paper-2: oklch(0.94 0.008 95);
+  --ink: oklch(0.155 0.008 130);
+  --ink-2: oklch(0.2 0.008 130);
+  --ink-3: oklch(0.26 0.008 130);
+  /* 1 px rules on paper and cards */
+  --hairline: oklch(0.155 0.008 130 / 0.1);
+  /* Text-safe steps of the status colours: >= 4.5:1 on paper and white (WCAG AA). */
+  --accent-ink: oklch(0.47 0.11 160);
+  --accent-strong: oklch(0.5 0.115 160);
+  --warning-ink: oklch(0.5 0.13 50);
+  --info-ink: oklch(0.47 0.14 250);
+  --destructive-ink: oklch(0.5 0.19 25);
+  --shadow-soft-value: 0 1px 2px oklch(0.155 0.008 130 / 0.04), 0 14px 32px -18px oklch(0.155 0.008 130 / 0.22);
+  --shadow-lift-value: 0 1px 2px oklch(0.155 0.008 130 / 0.05), 0 30px 60px -30px oklch(0.155 0.008 130 / 0.38);
 }
 
 .dark {
@@ -172,12 +205,12 @@
  * ────────────────────────────────────────────────────────────────────────── */
 
 .landing-root {
-  /* The hero's night and its warm off-white text, reused for every dark band. */
-  --landing-ink: oklch(0.155 0.008 130);
-  --landing-ink-2: oklch(0.2 0.008 130);
-  --landing-ink-3: oklch(0.26 0.008 130);
-  --landing-paper: oklch(0.965 0.008 95);
-  --landing-paper-2: oklch(0.94 0.008 95);
+  /* Aliases of the shared brand palette in :root, so landing code stays unchanged. */
+  --landing-ink: var(--ink);
+  --landing-ink-2: var(--ink-2);
+  --landing-ink-3: var(--ink-3);
+  --landing-paper: var(--paper);
+  --landing-paper-2: var(--paper-2);
   overflow-x: clip;
 }
 
@@ -340,5 +373,57 @@ html:has(.landing-root) {
 @media (prefers-reduced-motion: reduce) {
   html:has(.landing-root) {
     scroll-behavior: auto;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Command centre (/dashboard). Same language as the landing page: paper
+ * surfaces, ink bands, one green accent. Prefixed `metaxy-`.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+.metaxy-app :where(a, button, input, textarea, select, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: 2px;
+}
+
+.metaxy-ink :where(a, button, input, [tabindex]):focus-visible {
+  outline-color: var(--paper);
+}
+
+/* Film grain for ink bands (same recipe as .landing-grain). */
+.metaxy-grain {
+  background-image:
+    radial-gradient(120% 70% at 50% 0%, oklch(1 0 0 / 0.05), transparent 60%),
+    radial-gradient(90% 60% at 50% 120%, oklch(0.62 0.13 160 / 0.12), transparent 70%);
+}
+
+.metaxy-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: oklch(0.155 0.008 130 / 0.18) transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .metaxy-app *,
+  .metaxy-app *::before,
+  .metaxy-app *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ≥1280 the phone panel sits in the flow on the right: keep the agent launcher and
+ * console clear of its composer by docking them at the board's bottom-right instead. */
+@media (min-width: 1280px) {
+  .metaxy-app[data-phone="open"] ~ .metaxy-launcher,
+  .metaxy-app[data-phone="open"] ~ .metaxy-console {
+    right: calc(23rem + 1rem);
+  }
+}
+
+/* Below 1280 the phone panel is a modal sheet: the launcher would cover its composer. Ctrl/⌘+K still works. */
+@media (max-width: 1279.98px) {
+  .metaxy-app[data-phone="open"] ~ .metaxy-launcher {
+    display: none;
   }
 }
