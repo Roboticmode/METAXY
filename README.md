@@ -22,7 +22,7 @@ Compliance & Formalisation · Operations · Opportunity Discovery · CRM & Reten
 
 ### Tasks (`docs/tasks/`)
 - [Task board](docs/tasks/README.md) — who's doing what, branches, merge order, file ownership
-- [01 Landing page](docs/tasks/01-landing-page.md) · [02 Responsive dashboard](docs/tasks/02-responsive-dashboard.md) · [03 Agent console](docs/tasks/03-agent-console.md)
+- [01 Landing page](docs/tasks/01-landing-page.md) · [02 Responsive dashboard](docs/tasks/02-responsive-dashboard.md) · [03 Agent console](docs/tasks/03-agent-console.md) · [04 Pitch deck](docs/tasks/04-pitch-deck.md)
 
 ### Design (`docs/design/`)
 - [Design prompt](docs/design/03-design-prompt.md) — master product & experience brief

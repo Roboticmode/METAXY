@@ -6,9 +6,12 @@ Three workstreams that can run **at the same time** (one person or agent each). 
 
 | # | Task | Brief | Branch | Owner | Status |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Landing page | [01-landing-page.md](01-landing-page.md) | `feat/landing-page` | _unassigned_ | todo |
-| 2 | Responsive dashboard + collapsible columns | [02-responsive-dashboard.md](02-responsive-dashboard.md) | `feat/responsive-dashboard` | _unassigned_ | todo |
-| 3 | Agent console (talk to the agent; it drives the UI) | [03-agent-console.md](03-agent-console.md) | `feat/agent-console` | _unassigned_ | todo |
+| 1 | Landing page (full cinematic SaaS page) | [01-landing-page.md](01-landing-page.md) | `feat/landing-page` | Claude agent session | in progress |
+| 2 | Responsive dashboard + collapsible columns | [02-responsive-dashboard.md](02-responsive-dashboard.md) | `feat/responsive-dashboard` | Claude agent session | in progress |
+| 3 | Agent console (talk to the agent; it drives the UI) | [03-agent-console.md](03-agent-console.md) | `feat/agent-console` | Claude agent session | in progress |
+| 4 | Pitch deck, speaker script & demo run-sheet | [04-pitch-deck.md](04-pitch-deck.md) | `docs/pitch-deck` | Claude agent session | in progress |
+
+Agent sessions push their branch to the `Roboticmode/METAXY` fork. A human reviews each one before it becomes a PR to `ThisIsPhila/METAXY`. Teammates: pair with a session or take over a task by changing the Owner column.
 
 ## Merge order
 
