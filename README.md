@@ -10,9 +10,18 @@ Built for the [Grok Bot Johannesburg Hackathon](https://luma.com/spacexai-0jmr?t
 Compliance & Formalisation · Operations · Opportunity Discovery · CRM & Retention
 
 ## Docs
-- [Hackathon brief](docs/00-hackathon-brief.md) — rules, credits, prizes, questions for the mentor
-- [Brainstorm](docs/01-brainstorm.md) — problem, scenarios, recommended vertical slice, architecture, risks
-- [Sprint plan](docs/02-sprint-plan.md) — roles, timeline, demo checklist
+
+### Archetypes (`docs/archetypes/`)
+- [Student-Freelancer archetype](docs/archetypes/student-freelancer.md) — **chosen demo use case** (managing freelance clients alongside university studies)
+- [Graduate Founder archetype](docs/archetypes/graduate-founder.md) — companion launch-stage use case
+
+### Planning (`docs/planning/`)
+- [Hackathon brief](docs/planning/00-hackathon-brief.md) — rules, credits, prizes, questions for the mentor
+- [Brainstorm](docs/planning/01-brainstorm.md) — problem, scenarios, recommended vertical slice, architecture, risks
+- [Sprint plan](docs/planning/02-sprint-plan.md) — roles, timeline, demo checklist
+
+### Design (`docs/design/`)
+- [Design prompt](docs/design/03-design-prompt.md) — master product & experience brief
 
 ## Run it
 ```bash
