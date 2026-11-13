@@ -1,13 +1,13 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, useReducer, useRef, type ReactNode } from "react";
-import { initialCustomers, newCustomer } from "@/lib/agent/data";
-import type { AgentEvent, AgentResponse, Approval, ComplianceNudge, ComplianceStatus, Customer, Order, Tab, TraceStatus } from "@/lib/agent/types";
+import { initialCustomers, initialSchoolItems, newCustomer } from "@/lib/agent/data";
+import type { AgentEvent, AgentResponse, AgentRole, Approval, ComplianceNudge, ComplianceStatus, Customer, Invoice, Project, SchoolItem, Tab, TraceStatus } from "@/lib/agent/types";
 import { complianceTasks, currentVault } from "@/lib/compliance/data";
-import { defaultAutomations, seedOrders, seedThreads } from "@/lib/whatsapp/data";
+import { defaultAutomations, seedInvoices, seedProjects, seedThreads } from "@/lib/whatsapp/data";
 
 export type ChatMsg = { id: number; customerId: string; from: "customer" | "agent" | "owner" | "system"; text: string; at: string; automation?: string };
-export type TraceItem = { id: number; tool: string; label: string; detail: string; status: TraceStatus; at: string };
+export type TraceItem = { id: number; agent?: AgentRole; tool: string; label: string; detail: string; status: TraceStatus; at: string };
 export type ComplianceState = { status: ComplianceStatus; prepared?: string[]; missing?: string[] };
 
 type State = {
@@ -22,7 +22,10 @@ type State = {
   unread: Record<string, number>;
   automations: Record<string, boolean>;
   trace: TraceItem[];
-  orders: Order[];
+  projects: Project[];
+  invoices: Invoice[];
+  school: SchoolItem[];
+  examMode: boolean;
   approvals: Approval[];
   customers: Customer[];
   nudges: ComplianceNudge[];
@@ -49,7 +52,10 @@ const initialState = (): State => ({
   unread: {},
   automations: { ...defaultAutomations },
   trace: [],
-  orders: [...seedOrders],
+  projects: [...seedProjects],
+  invoices: [...seedInvoices],
+  school: [...initialSchoolItems],
+  examMode: false,
   approvals: [],
   customers: initialCustomers,
   nudges: [],
@@ -62,11 +68,12 @@ const initialState = (): State => ({
 
 type Action =
   | { type: "tab"; tab: Tab }
-  | { type: "customer_says"; text: string }
+  | { type: "customer_says"; text: string; customerId?: string }
   | { type: "owner_says"; text: string }
   | { type: "open_chat"; customerId: string }
   | { type: "toggle_pause"; customerId: string }
   | { type: "toggle_automation"; id: string }
+  | { type: "set_exam_mode"; active: boolean }
   | { type: "compliance_set"; id: string; status: ComplianceStatus }
   | { type: "preparing"; id: string | null }
   | { type: "busy"; busy: boolean; engine?: "mock" | "grok" }
@@ -90,8 +97,11 @@ function reducer(s: State, a: Action): State {
       return { ...s, busy: a.busy, engine: a.engine ?? s.engine };
     case "preparing":
       return { ...s, preparing: a.id };
-    case "customer_says":
-      return addMsg(s, { customerId: s.activeChat, from: "customer", text: a.text });
+    case "customer_says": {
+      const target = a.customerId ?? s.activeChat;
+      const next = { ...s, activeChat: target, unread: { ...s.unread, [target]: 0 } };
+      return addMsg(next, { customerId: target, from: "customer", text: a.text });
+    }
     case "owner_says": {
       const { [s.activeChat]: _, ...handoffs } = s.handoffs;
       return { ...addMsg(s, { customerId: s.activeChat, from: "owner", text: a.text }), handoffs, paused: { ...s.paused, [s.activeChat]: true } };
@@ -102,6 +112,8 @@ function reducer(s: State, a: Action): State {
       return { ...s, paused: { ...s.paused, [a.customerId]: !s.paused[a.customerId] } };
     case "toggle_automation":
       return { ...s, automations: { ...s.automations, [a.id]: !s.automations[a.id] } };
+    case "set_exam_mode":
+      return { ...s, examMode: a.active };
     case "compliance_set":
       return { ...s, compliance: { ...s.compliance, [a.id]: { ...s.compliance[a.id], status: a.status } } };
     case "reset":
@@ -110,17 +122,34 @@ function reducer(s: State, a: Action): State {
       const e = a.event;
       switch (e.type) {
         case "trace":
-          return { ...s, trace: [...s.trace, { id: seq++, tool: e.tool, label: e.label, detail: e.detail, status: e.status, at: now() }] };
+          return { ...s, trace: [...s.trace, { id: seq++, agent: e.agent, tool: e.tool, label: e.label, detail: e.detail, status: e.status, at: now() }] };
         case "reply": {
           const next = addMsg(s, { customerId: e.customerId ?? a.chat, from: "agent", text: e.text, automation: e.automation });
           return e.automation ? { ...next, unseen: bump(s, "whatsapp") } : next;
         }
-        case "order":
-          return { ...s, orders: [e.order, ...s.orders], unseen: bump(s, "operations") };
-        case "order_status":
-          return { ...s, orders: s.orders.map((o) => (o.id === e.orderId ? { ...o, status: e.status, payment: e.payment } : o)) };
+        case "project":
+          return { ...s, projects: [e.project, ...s.projects], unseen: bump(s, "operations") };
+        case "project_update":
+          return { ...s, projects: s.projects.map((p) => (p.id === e.projectId ? { ...p, ...e.patch } : p)) };
+        case "invoice_update":
+          return {
+            ...s,
+            invoices: s.invoices.map((inv) =>
+              inv.id === e.invoiceId ? { ...inv, status: e.status, daysOverdue: e.daysOverdue ?? inv.daysOverdue } : inv,
+            ),
+          };
+        case "school_update":
+          return {
+            ...s,
+            school: s.school.map((item) =>
+              item.id === e.id ? { ...item, date: e.date, title: e.note ? `${item.title} (${e.note})` : item.title } : item,
+            ),
+          };
         case "approval":
-          return { ...s, approvals: [e.approval, ...s.approvals] };
+          return {
+            ...s,
+            approvals: [e.approval, ...s.approvals.filter((existing) => existing.id !== e.approval.id)],
+          };
         case "approval_resolved":
           return { ...s, approvals: s.approvals.map((p) => (p.id === e.id ? { ...p, status: e.status } : p)) };
         case "memory": {
@@ -143,16 +172,19 @@ function reducer(s: State, a: Action): State {
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const delayFor = (e: AgentEvent) => (e.type === "reply" ? 1100 : e.type === "trace" ? 650 : 450);
+const delayFor = (e: AgentEvent) => (e.type === "reply" ? 900 : e.type === "trace" ? 550 : 380);
 
 type Ctx = {
   state: State;
   setTab: (t: Tab) => void;
-  sendCustomerMessage: (text: string) => Promise<void>;
+  sendCustomerMessage: (text: string, customerId?: string) => Promise<void>;
   sendOwnerMessage: (text: string) => void;
   openChat: (customerId: string) => void;
   togglePause: (customerId: string) => void;
   toggleAutomation: (id: string) => void;
+  checkCollisions: () => Promise<void>;
+  chaseOverdue: () => Promise<void>;
+  toggleExamMode: () => Promise<void>;
   runAutomations: () => Promise<void>;
   prepareCompliance: (taskId: string) => Promise<void>;
   setComplianceStatus: (taskId: string, status: ComplianceStatus) => void;
@@ -200,22 +232,47 @@ export function MetaxyProvider({ children }: { children: ReactNode }) {
       toggleAutomation: (id) => dispatch({ type: "toggle_automation", id }),
       setComplianceStatus: (id, status) => dispatch({ type: "compliance_set", id, status }),
       sendOwnerMessage: (text) => dispatch({ type: "owner_says", text }),
-      sendCustomerMessage: async (text) => {
+      sendCustomerMessage: async (text, customerIdOverride) => {
         const s = stateRef.current;
-        const chat = s.activeChat;
-        dispatch({ type: "customer_says", text });
+        const chat = customerIdOverride ?? s.activeChat;
+        dispatch({ type: "customer_says", text, customerId: chat });
         if (s.paused[chat]) {
           dispatch({
             type: "event",
             chat,
-            event: { type: "trace", tool: "agent_paused", label: "Agent paused", detail: "You're handling this chat — the agent won't reply", status: "warn" },
+            event: { type: "trace", agent: "Client Desk", tool: "agent_paused", label: "Agent paused", detail: "You're handling this chat — the agent won't reply", status: "warn" },
           });
           return;
         }
-        await play({ kind: "customer_message", text, customerId: chat, orders: s.orders.filter((o) => o.customerId === chat), enabled: enabledAutomations() }, chat);
+        await play(
+          {
+            kind: "customer_message",
+            text,
+            customerId: chat,
+            projects: s.projects,
+            enabled: enabledAutomations(),
+            examMode: s.examMode,
+          },
+          chat,
+        );
+      },
+      checkCollisions: async () => {
+        const s = stateRef.current;
+        await play({ kind: "check_collisions", projects: s.projects, school: s.school }, s.activeChat);
+      },
+      chaseOverdue: async () => {
+        const s = stateRef.current;
+        await play({ kind: "chase_overdue", invoices: s.invoices }, s.activeChat);
+      },
+      toggleExamMode: async () => {
+        const s = stateRef.current;
+        const next = !s.examMode;
+        dispatch({ type: "set_exam_mode", active: next });
+        await play({ kind: "toggle_exam_mode", active: next, projects: s.projects }, s.activeChat);
       },
       runAutomations: async () => {
-        await play({ kind: "run_automations", enabled: enabledAutomations(), orders: stateRef.current.orders }, stateRef.current.activeChat);
+        const s = stateRef.current;
+        await play({ kind: "run_automations", enabled: enabledAutomations(), projects: s.projects, invoices: s.invoices }, s.activeChat);
       },
       prepareCompliance: async (taskId) => {
         dispatch({ type: "preparing", id: taskId });
@@ -225,10 +282,11 @@ export function MetaxyProvider({ children }: { children: ReactNode }) {
         dispatch({ type: "preparing", id: null });
       },
       decide: async (approvalId, decision) => {
-        const approval = stateRef.current.approvals.find((a) => a.id === approvalId);
-        const order = stateRef.current.orders.find((o) => o.id === approval?.orderId);
-        if (!approval || !order) return;
-        await play({ kind: "approval", decision, approvalId, order }, order.customerId);
+        const s = stateRef.current;
+        const approval = s.approvals.find((a) => a.id === approvalId);
+        if (!approval) return;
+        const project = s.projects.find((p) => p.id === approval.targetId);
+        await play({ kind: "approval", decision, approval, project }, approval.customerId ?? s.activeChat);
       },
     }),
     [state, play],

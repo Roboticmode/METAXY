@@ -47,8 +47,9 @@ export function WhatsAppBoard() {
                         .join("")}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="text-xs font-bold">{c.name}</span>
+                        <MonoLabel className="text-muted-foreground">{c.business}</MonoLabel>
                         {handoff ? <Badge tone="warn">needs you</Badge> : null}
                         {state.paused[c.id] ? <Badge tone="info">you&apos;re handling</Badge> : null}
                         {c.optIn ? null : <MonoLabel className="text-muted-foreground">no marketing</MonoLabel>}
@@ -108,7 +109,7 @@ export function WhatsAppBoard() {
             })}
           </ul>
           <p className="mt-3 text-[11px] leading-snug text-muted-foreground">
-            Messages the business starts (reminders, nudges) use WhatsApp-approved templates. Promotions only go to customers who opted in.
+            Messages the studio starts (reminders, nudges) use WhatsApp-approved templates. Promotions only go to clients who opted in.
           </p>
         </Panel>
 
@@ -134,7 +135,7 @@ export function WhatsAppBoard() {
 
         <div className="flex items-start gap-2 rounded border border-border bg-secondary/40 p-3 text-[11px] leading-snug text-muted-foreground">
           <Hand className="mt-0.5 size-3.5 shrink-0" />
-          The agent never promises refunds, discounts or exceptions on its own — those come to you as approvals or hand-offs.
+          METAXY never promises dates, sends quotes or overdue reminders, or writes coursework on its own — those come to Naledi as approvals or hand-offs.
         </div>
       </div>
     </div>

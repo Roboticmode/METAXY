@@ -24,7 +24,7 @@ export function WhatsAppPanel() {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length, state.busy, chat]);
 
-  const send = (t: string, who = as) => {
+  const send = (t: string, who = as, customerIdOverride?: string) => {
     const v = t.trim();
     if (!v) return;
     if (who === "owner") {
@@ -34,7 +34,7 @@ export function WhatsAppPanel() {
     }
     if (state.busy) return;
     setText("");
-    void sendCustomerMessage(v);
+    void sendCustomerMessage(v, customerIdOverride);
   };
 
   return (
@@ -46,7 +46,9 @@ export function WhatsAppPanel() {
           </div>
           <div className="min-w-0 leading-tight">
             <div className="truncate text-xs font-bold">{customer.name}</div>
-            <MonoLabel className="text-muted-foreground">{customer.phone} · mirrored live</MonoLabel>
+            <MonoLabel className="truncate text-muted-foreground">
+              {customer.business} · {customer.phone}
+            </MonoLabel>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -75,7 +77,7 @@ export function WhatsAppPanel() {
 
       <div className="flex-1 space-y-2 overflow-y-auto bg-[#efeae2]/60 p-3">
         {messages.length === 0 ? (
-          <div className="mt-8 text-center text-xs text-muted-foreground">No messages yet. Use a preset below to simulate a customer on WhatsApp.</div>
+          <div className="mt-8 text-center text-xs text-muted-foreground">No messages yet. Use a preset below to simulate a client on WhatsApp.</div>
         ) : null}
         {messages.map((m) => {
           const outgoing = m.from === "agent" || m.from === "owner";
@@ -110,7 +112,7 @@ export function WhatsAppPanel() {
                 onClick={() => setAs(who)}
                 className={cn("cursor-pointer rounded-sm px-2 py-0.5 font-mono text-[9px] font-bold uppercase", as === who ? "bg-foreground text-background" : "text-muted-foreground")}
               >
-                {who === "customer" ? "Simulate customer" : `Reply as ${ownerFirst}`}
+                {who === "customer" ? "Simulate client" : `Reply as ${ownerFirst}`}
               </button>
             ))}
           </div>
@@ -119,7 +121,7 @@ export function WhatsAppPanel() {
         {as === "customer" ? (
           <div className="flex max-h-28 flex-wrap gap-1 overflow-y-auto">
             {presetMessages.map((p) => (
-              <Btn key={p.label} disabled={state.busy} onClick={() => send(p.text, "customer")} className="px-2 py-1 text-[10px] normal-case tracking-normal">
+              <Btn key={p.label} disabled={state.busy} onClick={() => send(p.text, "customer", p.customerId)} className="px-2 py-1 text-[10px] normal-case tracking-normal">
                 {p.label}
               </Btn>
             ))}

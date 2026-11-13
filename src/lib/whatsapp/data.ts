@@ -1,4 +1,5 @@
-import type { Order } from "@/lib/agent/types";
+import type { Invoice, Project } from "@/lib/agent/types";
+import { initialInvoices, initialProjects } from "@/lib/agent/data";
 
 /** All data here is synthetic. */
 
@@ -6,101 +7,60 @@ export type Automation = {
   id: string;
   label: string;
   detail: string;
-  /** business-initiated messages need a WhatsApp-approved template */
   template?: string;
-  /** can't be switched off — safety rule */
   locked?: boolean;
 };
 
 export const automations: Automation[] = [
-  { id: "faq", label: "Instant FAQ answers", detail: "Menu & prices, hours, location and banking details — answered from your brief, 24/7" },
-  { id: "order_intake", label: "Order intake", detail: "Reads the order, checks the calendar and your policies, drafts the order" },
-  { id: "deposit_reminder", label: "Deposit reminder", detail: "Polite nudge when a deposit is still unpaid after 24h", template: "deposit_reminder_v1" },
-  { id: "delivery_reminder", label: "Day-before reminder", detail: "Confirms delivery time & address the day before", template: "delivery_reminder_v1" },
-  { id: "thank_you", label: "Thank-you & feedback", detail: "Thanks the customer the day after delivery and asks for a quick review", template: "thank_you_v2" },
-  { id: "reorder", label: "Re-order nudge", detail: "Gentle 'craving something sweet?' after 3+ weeks — opted-in customers only (POPIA)", template: "reorder_nudge_v1" },
-  { id: "escalate", label: "Hand off to you", detail: "Complaints and questions the agent can't answer are passed to you — never guessed", locked: true },
+  { id: "faq", label: "Instant FAQ & rate replies", detail: "Rates, turnaround rules, studio hours and banking details — answered from your brief, 24/7" },
+  { id: "order_intake", label: "Enquiry & capacity triage", detail: "Client Desk + Planner check university load & term hours, then draft a reply for your approval" },
+  { id: "scope_guard", label: "Scope-creep guard", detail: "Compares requests against agreed deliverables and drafts an add-on quote when out of scope" },
+  { id: "deposit_reminder", label: "Deposit & invoice chaser", detail: "Books drafts polite EFT reminders for unpaid deposits and overdue invoices (for your approval)", template: "invoice_reminder_v1" },
+  { id: "progress_update", label: "Test-week status updates", detail: "Proactively briefs active clients when academic tests tighten studio hours", template: "status_update_v1" },
+  { id: "reorder", label: "Dormant client check-in", detail: "Gentle quarterly check-in — opted-in clients only (POPIA s69)", template: "checkin_nudge_v1" },
+  { id: "escalate", label: "Hand off complaints & unknowns", detail: "Complaints and bespoke questions go straight to Naledi — never guessed", locked: true },
 ];
 
 export const defaultAutomations: Record<string, boolean> = Object.fromEntries(automations.map((a) => [a.id, true]));
 
-export const businessHours = "Orders answered 24/7 by the agent · Thandi bakes Mon–Fri after 17:30 and Saturdays 08:00–14:00";
-export const deliveryArea = "Soweto, Dobsonville, Meadowlands & Diepkloof (free delivery) — collection in Orlando West";
-export const bankingDetails = "Thandi's Bakes · Capitec · Acc 1234 567 890 · Branch 470010 (demo details)";
+export const businessHours = "Client Desk replies 24/7 (drafts held for approval) · Studio hours: 8–10 hrs/wk around BSc IS lectures & tests";
+export const deliveryArea = "Remote across Johannesburg & SA · WhatsApp + Google Meet · EFT invoicing";
+export const bankingDetails = "Naledi Studio · FNB Cheque · Acc 6291 044 8210 · Branch 250655 (demo details)";
 
-/** WhatsApp Business account setup. */
 export const setupSteps = [
-  { id: "number", label: "Business number verified", detail: "+27 82 555 0100 on WhatsApp Business", status: "done" as const },
-  { id: "profile", label: "Business profile", detail: "Name, description, hours, address, category: Bakery", status: "done" as const },
-  { id: "catalogue", label: "Product catalogue", detail: "4 items synced from your price list", status: "done" as const },
-  { id: "greeting", label: "Greeting & away messages", detail: "Handled by the agent instead of fixed text", status: "done" as const },
-  { id: "templates", label: "Message templates approved", detail: "4 of 4 approved by Meta — needed for messages the business starts", status: "done" as const },
-  { id: "optin", label: "Marketing opt-in capture", detail: "Ask new customers on first order (see Compliance › POPIA)", status: "progress" as const },
-  { id: "api", label: "Connect WhatsApp Business Platform", detail: "Demo uses the simulator — Cloud API is a drop-in swap", status: "todo" as const },
+  { id: "number", label: "Studio WhatsApp verified", detail: "+27 82 555 0100 on WhatsApp Business", status: "done" as const },
+  { id: "profile", label: "Studio profile & hours", detail: "Naledi Studio · Design & Web · Term-time turnaround notice", status: "done" as const },
+  { id: "catalogue", label: "Service packages synced", detail: "Logo kit, Social pack, 3-page website & Add-on rates", status: "done" as const },
+  { id: "templates", label: "Message templates approved", detail: "3 of 3 Meta templates ready (reminders, status, check-ins)", status: "done" as const },
+  { id: "optin", label: "POPIA opt-in capture", detail: "Ask new clients on first quote (see Compliance › POPIA)", status: "progress" as const },
+  { id: "api", label: "Connect WhatsApp Cloud API", detail: "Demo uses the simulator — Cloud API is a drop-in swap", status: "todo" as const },
 ];
 
-/** Dates the automations compare against (demo "today" is Fri 13 Nov 2026). */
-export const TOMORROW = "2026-11-14";
-export const YESTERDAY = "2026-11-12";
+export const seedProjects: Project[] = initialProjects;
+export const seedInvoices: Invoice[] = initialInvoices;
 
-/** Orders already in flight before the demo starts — give the automations something real to do. */
-export const seedOrders: Order[] = [
-  {
-    id: "ORD-1031",
-    customerId: "c-101",
-    customerName: "Naledi Khumalo",
-    items: [{ name: "large cake", qty: 1, unit: 550 }],
-    total: 550,
-    deposit: 0,
-    date: "2026-11-14",
-    status: "confirmed",
-    payment: "EFT on the day (regular)",
-  },
-  {
-    id: "ORD-1029",
-    customerId: "c-104",
-    customerName: "Lerato Mokoena",
-    items: [{ name: "brownie box", qty: 2, unit: 180 }],
-    total: 360,
-    deposit: 180,
-    date: "2026-11-17",
-    status: "awaiting_deposit",
-    payment: "50% deposit R180 due",
-  },
-  {
-    id: "ORD-1024",
-    customerId: "c-105",
-    customerName: "Bongani Nkosi",
-    items: [{ name: "large cake", qty: 1, unit: 550 }],
-    total: 550,
-    deposit: 0,
-    date: "2026-11-12",
-    status: "delivered",
-    payment: "Paid on delivery",
-  },
-];
-
-/** Customers due a re-order nudge (3+ weeks since last order, no open order). */
-export const reorderCandidates = ["c-102", "c-103"];
+export const checkinCandidates = ["c-105"];
 
 type Seed = { from: "customer" | "agent" | "owner"; text: string; at: string };
 
-/** Earlier conversation history per customer — oldest chat first (the inbox sorts by latest message). */
+/** Seeded WhatsApp history across Naledi's 6 clients. */
 export const seedThreads: Record<string, Seed[]> = {
-  "c-102": [{ from: "customer", text: "Thanks Thandi, the team loved the cupcakes 👌", at: "16 Oct" }],
-  "c-103": [{ from: "customer", text: "The nut-free cupcakes were perfect for my son's party, thank you!", at: "24 Oct" }],
+  "c-105": [{ from: "customer", text: "Thanks Naledi, the new clinic brochure looks super clean! 🙌", at: "18 Sep" }],
+  "c-102": [
+    { from: "customer", text: "Got the fleet branding & rate card PDF, thanks.", at: "23 Oct" },
+    { from: "agent", text: "Awesome Kagiso! I've attached INV-2041 (R2,400 final balance). EFT details are on the invoice.", at: "23 Oct" },
+  ],
   "c-101": [
-    { from: "customer", text: "Hi Thandi! Can I get a large red velvet cake for my daughter's birthday on Saturday the 14th? 🎂", at: "Mon 09:12" },
-    { from: "agent", text: "Hi Naledi! Saturday 14 Nov is available — 1 × large red velvet cake (R550). As a regular you can pay by EFT on the day. Confirmed! 🎉", at: "Mon 09:12" },
-    { from: "customer", text: "Perfect thank you!!", at: "Mon 09:15" },
+    { from: "customer", text: "Hey Naledi! Need a Summer Menu Social Pack for Kasi Brew next week if possible.", at: "Mon 10:15" },
+    { from: "agent", text: "Hi Kagiso! Planner checked Naledi's week — Mon 16 Nov works for the Summer Menu Social Pack (R850). 50% deposit (R425) locks it in!", at: "Mon 10:16" },
+    { from: "customer", text: "Cool, paying the deposit today.", at: "Mon 10:22" },
+  ],
+  "c-103": [
+    { from: "customer", text: "Hi Naledi, excited to see the Dube Physio logo concepts!", at: "Tue 14:05" },
+    { from: "owner", text: "Sending the two primary concepts tonight Zanele — business card layout follows right after ✨", at: "Tue 18:40" },
   ],
   "c-104": [
-    { from: "customer", text: "hello can i order 2 brownie boxes for tuesday 17th", at: "Wed 21:40" },
-    { from: "agent", text: "Hi Lerato! Tuesday 17 Nov is open — 2 × brownie box (R360). To confirm we ask for a 50% deposit (R180) by EFT. Shall I send the banking details?", at: "Wed 21:40" },
-  ],
-  "c-105": [
-    { from: "customer", text: "Morning Thandi, the cake for the church function on Thursday — can you write 'Happy 25th Rev. Dube' on it?", at: "Tue 07:02" },
-    { from: "agent", text: "Morning Bongani! Noted — 'Happy 25th Rev. Dube' on the large cake for Thursday 12 Nov. 🙏", at: "Tue 07:02" },
-    { from: "owner", text: "Delivered and they loved it! Thanks Bongani 🙌", at: "Thu 16:30" },
+    { from: "customer", text: "Hey, 50% deposit paid for the Nkosi Solar 3-page website. Looking at Wed 25 Nov for milestone review?", at: "Wed 11:30" },
+    { from: "agent", text: "Deposit received, thanks Thabo! Pencilled in for Wed 25 Nov — Planner will flag any schedule shifts early.", at: "Wed 11:31" },
   ],
 };

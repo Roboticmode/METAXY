@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Building2, Gauge, LogOut, MessageCircle, Radar, ShieldCheck, Users } from "lucide-react";
+import { Building2, Gauge, GraduationCap, LogOut, MessageCircle, Radar, ShieldCheck, Users } from "lucide-react";
 import { business, TURNOVER } from "@/lib/agent/data";
 import type { Tab } from "@/lib/agent/types";
 import { createClient } from "@/lib/supabase/client";
@@ -12,7 +12,7 @@ import { CrmBoard, OpportunitiesBoard } from "@/components/other-boards";
 import { OperationsBoard } from "@/components/operations-board";
 import { WhatsAppPanel } from "@/components/whatsapp-panel";
 import { WhatsAppBoard } from "@/components/whatsapp-board";
-import { MonoLabel, cn } from "@/components/ui";
+import { Badge, MonoLabel, cn } from "@/components/ui";
 
 const tabs: { id: Tab; code: string; label: string; icon: typeof Gauge }[] = [
   { id: "operations", code: "M-01", label: "Operations", icon: Gauge },
@@ -45,12 +45,12 @@ export function Shell({ userEmail = null }: { userEmail?: string | null }) {
           </Link>
           <div className="flex items-center gap-3 border-l border-border pl-3">
             <div className="flex flex-col leading-tight">
-              <MonoLabel className="text-muted-foreground">Business</MonoLabel>
+              <MonoLabel className="text-muted-foreground">Studio</MonoLabel>
               <span className="text-[11px] font-semibold">{business.name}</span>
             </div>
-            <div className="flex flex-col border-l border-border pl-3 leading-tight">
-              <MonoLabel className="text-muted-foreground">Stage</MonoLabel>
-              <span className="text-[11px] font-semibold">Informal → Formal</span>
+            <div className="hidden flex-col border-l border-border pl-3 leading-tight sm:flex">
+              <MonoLabel className="text-muted-foreground">Mode</MonoLabel>
+              <span className="text-[11px] font-semibold">BSc IS · 8–10 hrs/wk</span>
             </div>
             <div className="flex flex-col border-l border-border pl-3 leading-tight">
               <MonoLabel className="text-muted-foreground">Turnover 12m</MonoLabel>
@@ -59,6 +59,7 @@ export function Shell({ userEmail = null }: { userEmail?: string | null }) {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {state.examMode ? <Badge tone="warn">Exam Mode ON</Badge> : null}
           {pendingApprovals ? (
             <div className="flex items-center gap-2 rounded-sm border border-[var(--warning)]/40 bg-[var(--warning)]/10 px-3 py-1 text-[var(--warning)]">
               <MonoLabel>{pendingApprovals} decision waiting</MonoLabel>
@@ -85,7 +86,7 @@ export function Shell({ userEmail = null }: { userEmail?: string | null }) {
             </Link>
           )}
           <div className="grid size-8 place-items-center rounded-full border border-border bg-secondary text-[10px] font-bold">
-            {userEmail ? userEmail.slice(0, 2).toUpperCase() : "TD"}
+            {userEmail ? userEmail.slice(0, 2).toUpperCase() : "NK"}
           </div>
         </div>
       </header>
@@ -95,8 +96,12 @@ export function Shell({ userEmail = null }: { userEmail?: string | null }) {
           <div className="space-y-2 border-b border-border p-4">
             <MonoLabel className="text-muted-foreground">Contextual Memory</MonoLabel>
             <p className="text-xs leading-relaxed text-muted-foreground">
-              <span className="font-medium text-foreground">{business.owner}</span> runs a home bakery in <span className="font-medium text-foreground">{business.area}</span> on WhatsApp, after her 9-to-5.
+              <span className="font-medium text-foreground">{business.owner}</span> balances 5 <span className="font-medium text-foreground">BSc IS</span> modules with freelance design &amp; web clients in{" "}
+              <span className="font-medium text-foreground">{business.area}</span>.
             </p>
+            <div className="flex items-center gap-1.5 font-mono text-[10px] text-accent">
+              <GraduationCap className="size-3" /> Client Desk · Books · Planner
+            </div>
           </div>
           <nav className="flex-1 space-y-1 p-3">
             <MonoLabel className="mb-2 block px-1 text-muted-foreground">Operational Modules</MonoLabel>
@@ -123,7 +128,7 @@ export function Shell({ userEmail = null }: { userEmail?: string | null }) {
           <div className="space-y-1 border-t border-border p-3">
             <div className="flex items-center gap-2">
               <Building2 className="size-3 text-muted-foreground" />
-              <MonoLabel className="text-muted-foreground">CIPC · SARS · linked</MonoLabel>
+              <MonoLabel className="text-muted-foreground">CIPC · SARS · Study calendar</MonoLabel>
             </div>
           </div>
         </aside>

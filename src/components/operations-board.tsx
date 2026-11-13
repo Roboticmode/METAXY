@@ -1,28 +1,56 @@
 "use client";
 
-import { Check, CircleAlert, ShieldAlert, Sparkles, X } from "lucide-react";
+import { CalendarClock, Check, CircleAlert, GraduationCap, Receipt, ShieldAlert, Sparkles, X } from "lucide-react";
 import { business, policies } from "@/lib/agent/data";
-import { formatDate, rand } from "@/lib/agent/tools";
+import { detectCollisions, formatDate, rand } from "@/lib/agent/tools";
+import type { Invoice, Project } from "@/lib/agent/types";
 import { useMetaxy } from "@/lib/store";
 import { Badge, Btn, MonoLabel, Panel, cn } from "@/components/ui";
-import type { Order } from "@/lib/agent/types";
 
-const statusTone: Record<Order["status"], "ok" | "warn" | "block" | "info" | "neutral"> = {
-  draft: "neutral",
+const projectTone: Record<Project["status"], "ok" | "warn" | "block" | "info" | "neutral"> = {
+  scoping: "neutral",
   awaiting_deposit: "info",
   awaiting_approval: "warn",
-  confirmed: "ok",
+  in_progress: "ok",
   delivered: "neutral",
   declined: "block",
 };
 
+const invoiceTone: Record<Invoice["status"], "ok" | "warn" | "block" | "info" | "neutral"> = {
+  paid: "ok",
+  due_soon: "neutral",
+  deposit_pending: "info",
+  overdue: "block",
+};
+
 export function OperationsBoard() {
-  const { state, decide, setTab } = useMetaxy();
+  const { state, decide, setTab, checkCollisions, chaseOverdue, toggleExamMode } = useMetaxy();
   const pending = state.approvals.filter((a) => a.status === "pending");
+  const collisions = detectCollisions(state.projects, state.school);
+  const overdueCount = state.invoices.filter((i) => i.status === "overdue").length;
 
   return (
     <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto p-4 xl:grid-cols-5">
       <div className="space-y-4 xl:col-span-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded border border-border bg-secondary/40 px-3 py-2">
+          <div className="flex items-center gap-2">
+            <MonoLabel className="text-muted-foreground">Agent triggers</MonoLabel>
+            {collisions.length ? <Badge tone="block">{collisions.length} calendar collision</Badge> : <Badge tone="ok">Calendar clear</Badge>}
+            {overdueCount ? <Badge tone="warn">{overdueCount} overdue</Badge> : null}
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Btn disabled={state.busy} onClick={() => void checkCollisions()}>
+              <CalendarClock className="size-3" /> Check collisions (Planner)
+            </Btn>
+            <Btn disabled={state.busy} onClick={() => void chaseOverdue()}>
+              <Receipt className="size-3" /> Chase overdue (Books)
+            </Btn>
+            <Btn variant={state.examMode ? "accent" : "default"} disabled={state.busy} onClick={() => void toggleExamMode()}>
+              <GraduationCap className="size-3" /> Exam Mode: {state.examMode ? "ON" : "OFF"}
+            </Btn>
+          </div>
+        </div>
+
         {state.nudges.length ? (
           <div className="rounded border border-accent/40 bg-accent/10 p-3">
             <div className="flex items-center gap-2">
@@ -43,32 +71,44 @@ export function OperationsBoard() {
         <Panel
           title="Approval queue"
           code="OPS-01"
-          right={pending.length ? <Badge tone="warn">{pending.length} pending</Badge> : <Badge>clear</Badge>}
+          right={pending.length ? <Badge tone="warn">{pending.length} waiting</Badge> : <Badge>clear</Badge>}
         >
           {state.approvals.length === 0 ? (
-            <p className="text-xs text-muted-foreground">Nothing needs your decision. The agent will ask when a customer goes against your policies.</p>
+            <p className="text-xs text-muted-foreground">
+              Nothing needs your decision yet. Simulate a WhatsApp enquiry, run <span className="font-semibold text-foreground">Check collisions</span>, or click{" "}
+              <span className="font-semibold text-foreground">Chase overdue</span> above — drafts always pause here first.
+            </p>
           ) : (
             <div className="space-y-2">
               {state.approvals.map((a) => (
                 <div key={a.id} className={cn("rounded border p-3", a.status === "pending" ? "border-[var(--warning)]/50 bg-[var(--warning)]/5" : "border-border bg-secondary/40")}>
                   <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <ShieldAlert className="size-4 text-[var(--warning)]" />
+                    <div className="flex items-start gap-2">
+                      <ShieldAlert className="mt-0.5 size-4 shrink-0 text-[var(--warning)]" />
                       <div>
-                        <div className="text-xs font-bold">{a.title}</div>
-                        <div className="text-xs text-muted-foreground">{a.detail}</div>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="text-xs font-bold">{a.title}</span>
+                          <Badge tone="info">{a.agent}</Badge>
+                        </div>
+                        <div className="mt-0.5 text-xs text-muted-foreground">{a.detail}</div>
                       </div>
                     </div>
                     <Badge tone={a.status === "pending" ? "warn" : a.status === "allowed" ? "ok" : "block"}>{a.status}</Badge>
                   </div>
-                  <div className="mt-2 font-mono text-[10px] text-muted-foreground">Policy: {a.policy}</div>
+                  {a.draftMessage ? (
+                    <div className="mt-2 rounded border border-border bg-card px-2.5 py-2 text-[11px] leading-relaxed">
+                      <MonoLabel className="mb-0.5 block text-muted-foreground">Draft WhatsApp message</MonoLabel>
+                      <span>&ldquo;{a.draftMessage}&rdquo;</span>
+                    </div>
+                  ) : null}
+                  <div className="mt-2 font-mono text-[10px] text-muted-foreground">{a.policy}</div>
                   {a.status === "pending" ? (
                     <div className="mt-3 flex gap-2">
                       <Btn variant="accent" disabled={state.busy} onClick={() => void decide(a.id, "allow")}>
-                        <Check className="size-3" /> Allow once
+                        <Check className="size-3" /> Approve &amp; send
                       </Btn>
                       <Btn variant="destructive" disabled={state.busy} onClick={() => void decide(a.id, "refuse")}>
-                        <X className="size-3" /> Refuse
+                        <X className="size-3" /> Hold
                       </Btn>
                     </div>
                   ) : null}
@@ -78,55 +118,99 @@ export function OperationsBoard() {
           )}
         </Panel>
 
-        <Panel title="Order & payment surface" code="OPS-02">
-          {state.orders.length === 0 ? (
-            <p className="text-xs text-muted-foreground">No live orders. Send a customer message to watch the agent build one.</p>
-          ) : (
-            <div className="space-y-2">
-              {state.orders.map((o) => (
-                <div key={o.id} className="rounded border border-border p-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs font-bold">{o.id}</span>
-                      <span className="text-xs">{o.customerName}</span>
+        <Panel
+          title="Shared commitment & university calendar"
+          code="OPS-00"
+          right={<Badge tone={collisions.length ? "block" : "ok"}>{collisions.length ? `${collisions.length} conflict` : "in sync"}</Badge>}
+        >
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {[...state.school]
+              .sort((a, b) => a.date.localeCompare(b.date))
+              .slice(0, 6)
+              .map((s) => {
+                const hit = collisions.find((c) => c.school.date === s.date);
+                return (
+                  <div key={s.id} className={cn("rounded border p-2 text-xs", hit ? "border-destructive/50 bg-destructive/5" : "border-border")}>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-mono text-[10px] font-bold text-muted-foreground">{formatDate(s.date)}</span>
+                      <Badge tone={hit ? "block" : s.fixed ? "info" : "neutral"}>{hit ? "COLLISION" : s.kind}</Badge>
                     </div>
-                    <Badge tone={statusTone[o.status]}>{o.status.replace("_", " ")}</Badge>
+                    <div className="mt-1 font-semibold">{s.title}</div>
+                    <div className="text-[11px] text-muted-foreground">
+                      {s.module} · {s.hours}h {s.fixed ? "fixed" : "flexible"}
+                      {hit ? ` · overlaps ${hit.project.id}` : ""}
+                    </div>
                   </div>
-                  <ul className="mt-2 space-y-0.5 text-xs">
-                    {o.items.map((i) => (
-                      <li key={i.name} className="flex justify-between">
-                        <span>
-                          {i.qty} × {i.name}
-                        </span>
-                        <span className="font-mono">{rand(i.qty * i.unit)}</span>
-                      </li>
+                );
+              })}
+          </div>
+        </Panel>
+
+        <Panel title="Projects, scope & invoices" code="OPS-02">
+          <div className="space-y-3">
+            <div className="space-y-2">
+              {state.projects.map((p) => (
+                <div key={p.id} className="rounded border border-border p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs font-bold">{p.id}</span>
+                      <span className="text-xs font-semibold">{p.customerName}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      {p.scopeFlag ? <Badge tone="warn">{p.scopeFlag}</Badge> : null}
+                      <Badge tone={projectTone[p.status]}>{p.status.replace("_", " ")}</Badge>
+                    </div>
+                  </div>
+                  <div className="mt-1 text-xs font-medium">{p.title}</div>
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {p.deliverables.map((d) => (
+                      <span key={d} className="rounded-sm bg-secondary px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                        {d}
+                      </span>
                     ))}
-                  </ul>
+                  </div>
                   <div className="mt-2 grid grid-cols-3 gap-2 border-t border-border pt-2">
                     <div>
-                      <MonoLabel className="text-muted-foreground">Delivery</MonoLabel>
-                      <div className="text-xs font-semibold">{o.date ? formatDate(o.date) : "TBC"}</div>
+                      <MonoLabel className="text-muted-foreground">Target</MonoLabel>
+                      <div className="text-xs font-semibold">{p.dueDate ? formatDate(p.dueDate) : "TBC"}</div>
                     </div>
                     <div>
-                      <MonoLabel className="text-muted-foreground">Total</MonoLabel>
-                      <div className="font-mono text-xs font-bold">{rand(o.total)}</div>
+                      <MonoLabel className="text-muted-foreground">Value</MonoLabel>
+                      <div className="font-mono text-xs font-bold">{rand(p.total)}</div>
                     </div>
                     <div>
                       <MonoLabel className="text-muted-foreground">Payment</MonoLabel>
-                      <div className={cn("text-xs font-semibold", o.payment.includes("BLOCKED") ? "text-destructive" : "")}>{o.payment}</div>
+                      <div className={cn("text-xs font-semibold", p.payment.includes("OVERDUE") ? "text-destructive" : "")}>{p.payment}</div>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
-          )}
+
+            <div className="border-t border-border pt-3">
+              <MonoLabel className="mb-2 block text-muted-foreground">Invoice ledger (Books)</MonoLabel>
+              <div className="divide-y divide-border rounded border border-border">
+                {state.invoices.map((inv) => (
+                  <div key={inv.id} className="flex items-center justify-between gap-2 px-3 py-2 text-xs">
+                    <div className="min-w-0">
+                      <span className="font-mono font-bold">{inv.id}</span> · <span className="text-muted-foreground">{inv.customerName}</span>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className="font-mono font-semibold">{rand(inv.amount)}</span>
+                      <Badge tone={invoiceTone[inv.status]}>{inv.status === "overdue" ? `${inv.daysOverdue}d overdue` : inv.status.replace("_", " ")}</Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </Panel>
       </div>
 
       <div className="space-y-4 xl:col-span-2">
         <Panel title="Agent activity" code="AGENT" right={state.busy ? <Badge tone="info">working</Badge> : <Badge>idle</Badge>}>
           {state.trace.length === 0 ? (
-            <p className="text-xs text-muted-foreground">Every tool call the agent makes shows up here so you can verify it.</p>
+            <p className="text-xs text-muted-foreground">Every tool call by Client Desk, Books, and Planner shows up here so you can verify it.</p>
           ) : (
             <ol className="space-y-2">
               {state.trace.map((t) => (
@@ -135,7 +219,8 @@ export function OperationsBoard() {
                     className={cn("mt-0.5 size-3.5 shrink-0", t.status === "ok" ? "text-accent" : t.status === "warn" ? "text-[var(--warning)]" : "text-destructive")}
                   />
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {t.agent ? <Badge tone="neutral">{t.agent}</Badge> : null}
                       <span className="text-xs font-semibold">{t.label}</span>
                       <MonoLabel className="text-muted-foreground">{t.tool}</MonoLabel>
                     </div>

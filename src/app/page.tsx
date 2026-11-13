@@ -22,7 +22,7 @@ const pillars = [
   {
     code: "M-03",
     title: "Compliance & Formalisation",
-    detail: "Guided CIPC, SARS, VAT threshold, R638, and POPIA checklist with a live document vault.",
+    detail: "Guided CIPC, SARS, VAT threshold, Scope & IP, and POPIA checklist with a live document vault.",
     icon: ShieldCheck,
   },
   {

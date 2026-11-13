@@ -12,7 +12,7 @@ Compliance & Formalisation · Operations · Opportunity Discovery · CRM & Reten
 ## Docs
 
 ### Archetypes (`docs/archetypes/`)
-- [Student-Freelancer archetype](docs/archetypes/student-freelancer.md) — **chosen demo use case** (managing freelance clients alongside university studies)
+- [Student-Freelancer archetype](docs/archetypes/student-freelancer.md) — **chosen demo use case** (**Naledi Studio**, managing freelance design & web clients alongside 3rd-year BSc IS university studies)
 - [Graduate Founder archetype](docs/archetypes/graduate-founder.md) — companion launch-stage use case
 
 ### Planning (`docs/planning/`)
@@ -22,6 +22,7 @@ Compliance & Formalisation · Operations · Opportunity Discovery · CRM & Reten
 
 ### Design (`docs/design/`)
 - [Design prompt](docs/design/03-design-prompt.md) — master product & experience brief
+- [Design prompt template](docs/design/design-prompt-template.md) — reusable Concept-Led Product & Experience Brief template explaining *why* and *what* agents must keep note of
 
 ## Run it
 ```bash
@@ -32,29 +33,29 @@ npm run dev                  # http://localhost:3000
 
 ## How it works
 - UI shell and design tokens come from **Vanguard.OS** (Next 16, Tailwind 4, mono/brutalist style).
-- The dashboard is purely presentational: it renders a stream of `AgentEvent`s (trace, reply, order, approval, memory, compliance).
-- The agent lives behind a swappable `Brain` ([src/lib/agent/brain.ts](src/lib/agent/brain.ts)): a scripted **mock** engine (works offline) and a **Grok** engine (xAI API). A pipeline ([pipeline.ts](src/lib/agent/pipeline.ts)) runs tools: understand → customer memory → calendar → policy → order → reply → approval.
-- If a Grok call fails, that step falls back to the scripted engine so the demo never breaks.
+- The dashboard is purely presentational: it renders a stream of `AgentEvent`s (`trace`, `reply`, `project`, `project_update`, `invoice_update`, `school_update`, `approval`, `memory`, `compliance`, `handoff`).
+- Three specialist roles coordinate behind the pipeline ([pipeline.ts](src/lib/agent/pipeline.ts)): **`Client Desk`** (WhatsApp intake, deliverables/scope checks, FAQs), **`Books`** (50% deposit policy, invoice aging, EFT reminders), and **`Planner`** (shared university timetable + studio capacity, collision detection, Exam Mode).
+- The agent lives behind a swappable `Brain` ([src/lib/agent/brain.ts](src/lib/agent/brain.ts)): a scripted **mock** engine (works offline) and a **Grok** engine (xAI API). If a Grok call fails, that step falls back to the scripted engine so the demo never breaks.
 
-## Hero demo
-1. Click **Scenario A — off-script order** in the WhatsApp panel (right).
-2. Watch Agent activity, the draft order (payment BLOCKED), and the approval card appear.
-3. Click **Allow once** → agent confirms to the customer → compliance nudge to formalise (CIPC).
+## Hero demo scenarios (`Naledi Studio`)
+1. **"Can you do it by Friday?" (Test-week capacity):** Click `1 · Can you do it by Friday?` in the WhatsApp panel → `Planner` spots the Thursday `IS302 Term Test 2` block, proposes Monday 23 Nov, `Books` quotes R3,200 (50% deposit R1,600), and `Client Desk` stages the draft reply in **Approval queue** → click **Approve & send**.
+2. **Collision week:** Click **Check collisions (Planner)** → detects `PRJ-109` (`Nkosi Solar`) colliding with `IS399 Capstone Milestone 3` on Wed 25 Nov → proposes shifting the study block to Sat 21 Nov and extending the client milestone +1 day → click **Approve & send**.
+3. **Overdue invoice (`Books`):** Click **Chase overdue (Books)** → flags `INV-2041` (`Kagiso Molefe · Molefe Logistics`, 21 days overdue) → approves polite EFT reminder → invoice marks **Paid** and CRM updates.
+4. **Scope creep (`Client Desk`):** Click `4 · Scope creep request` (Zanele Dube · Dube Physiotherapy) → compares against `PRJ-108` deliverables → stages transparent R950 add-on quote for approval.
+5. **Exam Mode & Academic Integrity Boundary:** Toggle **Exam Mode** to pause new bookings cleanly, or trigger `Coursework boundary (Never)` to watch `P-05` refuse university coursework requests.
 
-## WhatsApp module (owner ↔ customers)
-- **Inbox** of all customer chats — click one to open it in the phone panel. Unread counts, "needs you" and "you're handling" badges.
-- The agent routes every message by **intent**: orders go through the policy pipeline; FAQs (prices, hours, location, banking details) and "is my order ready?" are answered from the brief; complaints and unknown questions are **handed off** to the owner.
-- **Reply as Thandi** in the phone panel to take over a chat — the agent pauses for that chat until you hand it back.
-- **Automations** (toggle each): deposit reminders, day-before delivery reminders, thank-you + review, re-order nudges (opted-in customers only — POPIA), FAQ answers, order intake. **Run today's** fires them against the current orders.
-- **WhatsApp Business setup** checklist (profile, catalogue, templates, opt-in, Cloud API connection).
+## WhatsApp module (owner ↔ clients)
+- **Inbox** of all 6 client chats (`Kagiso Mokoena · Kasi Brew Coffee`, `Kagiso Molefe · Molefe Logistics` disambiguation pair, `Zanele Dube`, `Thabo Nkosi`, `Amina Patel`, `Buhle Sithole`) — click one to open it in the phone panel. Unread counts, "needs you" and "you're handling" badges.
+- **Reply as Naledi** in the phone panel to take over a chat — the agent pauses for that chat until you hand it back.
+- **Automations** (toggle each): instant FAQs, enquiry & capacity triage, scope-creep guard, deposit & invoice chasers, test-week progress updates, dormant client check-ins (opted-in clients only — POPIA s69). **Run today's** fires them against current projects and invoices.
+- **WhatsApp Business setup** checklist (profile, service packages, templates, POPIA opt-in, Cloud API connection).
 
 ## Compliance module (business legalities)
-- Checklist grouped by area: identity & tax (SARS, provisional tax, VAT), CIPC registration, business bank account, food-premises certificate (R638) and business licence, POPIA (Information Officer, privacy notice & marketing opt-in), B-BBEE EME affidavit, UIF/COIDA.
-- Each task shows why it matters, steps, documents (checked against the vault), cost, time and the official site.
-- **Prepare with agent** → the agent pre-fills what it can and marks it *ready for you*; the owner submits/pays herself (*I've submitted it* → *Mark approved*). Finished tasks add their certificate to the vault and unlock dependent tasks (e.g. CIPC → bank account).
-- Upcoming legal dates, turnover vs VAT threshold, document vault. Guidance only — not legal or tax advice.
+- Checklist tailored for a South African sole-trader freelance studio transitioning from informal to formal: SARS income tax & IRP6 provisional tax, CIPC registration, business bank account, Standard Freelance Scope & IP Agreement, POPIA (Information Officer, privacy notice & marketing opt-in), B-BBEE EME affidavit, and VAT/UIF/COIDA threshold monitoring.
+- Each task shows why it matters, steps, documents (checked against the vault), cost, time and official links.
+- **Prepare with agent** → the agent pre-fills what it can and marks it *ready for you*; Naledi submits/pays herself (*I've submitted it* → *Mark approved*). Finished tasks add certificates to the vault and unlock dependent tasks.
 
 ## Status
-Hero vertical slice, WhatsApp and Compliance modules working (scripted engine; Grok used when `XAI_API_KEY` is set). Opportunities and CRM tabs use fixture data (CRM memory updates live).
+Naledi Studio student-freelancer vertical slice, multi-agent approval pipeline (`Client Desk`, `Books`, `Planner`), WhatsApp inbox/automations, and Compliance modules working end-to-end (scripted engine offline; Grok active when `XAI_API_KEY` is set). Opportunities and CRM tabs use fixture data (CRM memory updates live).
 
-> All data in this repo is synthetic. No real customer or business data.
+> All data in this repo is synthetic. No real customer, banking, or university data.

@@ -1,25 +1,26 @@
-import { business, policies } from "./data";
+import { business, catalog, policies } from "./data";
 import { formatDate, mockUnderstand, rand } from "./tools";
-import type { Customer, Order, Understanding } from "./types";
+import type { Customer, Invoice, Project, SchoolItem, Understanding } from "./types";
 
 export type ComposeCtx =
   | {
-      kind: "order_reply";
+      kind: "enquiry_reply";
       customer: Customer;
       understanding: Understanding;
-      calendar: { label: string; available: boolean; alternative: string | null };
-      policy: { blocked: boolean; deposit: number; returning: boolean };
-      order: Order;
+      capacity: { label: string; available: boolean; blocker: string | null; proposedDate: string };
+      project: Project;
     }
-  | { kind: "exception_allowed" | "exception_refused"; customer: Customer; order: Order }
-  /** answer a repetitive question using only the given facts (FAQ, banking details, order status) */
+  | { kind: "scope_quote"; customer: Customer; project: Project; addOnTotal: number; addOnText: string }
+  | { kind: "collision_extension"; customer: Customer; project: Project; school: SchoolItem; newDate: string }
+  | { kind: "invoice_reminder"; customer: Customer; invoice: Invoice }
+  | { kind: "exam_notice"; customer: Customer; project: Project }
   | { kind: "info"; customer: Customer; understanding: Understanding; topic: string; facts: string }
-  /** the agent can't / mustn't handle this — tell the customer the owner will reply */
-  | { kind: "handoff"; customer: Customer; understanding: Understanding; reason: string };
+  | { kind: "handoff"; customer: Customer; understanding: Understanding; reason: string }
+  | { kind: "academic_refusal"; customer: Customer };
 
 /**
  * Swappable agent "brain". Everything the UI sees comes from AgentEvents emitted by the pipeline,
- * so the Grok Bot / any other framework can replace this without touching the dashboard.
+ * so Grok Bot / any external runtime can replace this without touching the dashboard.
  */
 export interface Brain {
   engine: "mock" | "grok";
@@ -31,43 +32,35 @@ const first = (name: string) => name.split(" ")[0];
 
 function mockCompose(ctx: ComposeCtx): string {
   const name = first(ctx.customer.name);
-  if (ctx.kind === "info") {
-    const hello = ctx.understanding.greeting ? `Hi ${name}! ` : `Hi ${name}, thanks for your message. `;
-    return `${hello}${ctx.facts}`;
-  }
-  if (ctx.kind === "handoff") {
-    if (ctx.understanding.emotion === "frustrated") {
-      return `${name}, I'm really sorry to hear that — that's not the experience we want for you. I've passed this straight to Thandi and she'll personally reply to you shortly. 🙏`;
+  switch (ctx.kind) {
+    case "academic_refusal":
+      return `Hi ${name} — I can help organise study time or client projects, but I never write, edit, or complete university assignments or coursework. Let me know if you need studio design work instead!`;
+    case "info": {
+      const hello = ctx.understanding.greeting ? `Hi ${name}! ` : `Hi ${name}, thanks for reaching out. `;
+      return `${hello}${ctx.facts}`;
     }
-    return `Thanks ${name}! That's a good question for Thandi herself — I've passed it on and she'll reply as soon as she can.`;
-  }
-  if (ctx.kind !== "order_reply") {
-    if (ctx.kind === "exception_allowed") {
-      return `Good news ${name} — Thandi has made a once-off exception. You can pay ${rand(ctx.order.total)} when we deliver. Your order is confirmed for ${ctx.order.date ? formatDate(ctx.order.date) : "your date"}. Again, our condolences. 🤍`;
+    case "handoff":
+      if (ctx.understanding.emotion === "frustrated") {
+        return `${name}, I'm really sorry about the blurry export — that's on us to fix fast. I've flagged this straight for Naledi and she'll reply personally shortly. 🙏`;
+      }
+      return `Thanks ${name}! I've passed this note to Naledi so she can respond directly.`;
+    case "scope_quote":
+      return `Hi ${name}! Glad you're loving the logo direction ✨ Just checking against our agreed brief (${ctx.project.deliverables.join(", ")}), ${ctx.addOnText} sits outside the original scope. I can add it as an add-on package for ${rand(ctx.addOnTotal)} (50% deposit ${rand(Math.round(ctx.addOnTotal * 0.5))}) — want me to lock that in?`;
+    case "collision_extension":
+      return `Hi ${name}, quick heads-up on ${ctx.project.title} — I have a fixed university ${ctx.school.title} on ${formatDate(ctx.school.date)}, and I don't want to rush your build. Can we deliver on ${formatDate(ctx.newDate)} (+1 day) so it gets my full focus? Let me know if that works!`;
+    case "invoice_reminder":
+      return `Hi ${name}, hope ${ctx.customer.business} is having a good week! Friendly nudge that ${ctx.invoice.id} (${rand(ctx.invoice.amount)}) is ${ctx.invoice.daysOverdue} days past due. Could you send through proof of payment when you get a moment? EFT: FNB Acc 6291 044 8210 (ref ${ctx.invoice.id}). 🙏`;
+    case "exam_notice":
+      return `Hi ${name}, quick heads-up: Naledi is entering university exam block (1–4 Dec), so new project intake is paused until 5 Dec. Your active project (${ctx.project.title}) stays on schedule — message anytime for status!`;
+    case "enquiry_reply": {
+      const { understanding: u, capacity, project } = ctx;
+      const greet = !u.greeting ? `Hi ${name}! Thanks for contacting ${business.name}.` : `Hi ${name}!`;
+      if (capacity.available) {
+        return `${greet} ${capacity.label} works for ${project.title} (${rand(project.total)}). A 50% deposit (${rand(project.deposit)}) by EFT locks in the slot — shall I send banking details?`;
+      }
+      return `${greet} I checked Naledi's studio & university calendar — next week has a database test on Thursday so ${capacity.label} isn't realistic without rushing. We can deliver cleanly on ${formatDate(capacity.proposedDate)} for ${rand(project.total)} (50% deposit ${rand(project.deposit)} to book). Does Monday work?`;
     }
-    return `Thanks for understanding, ${name}. To lock in your date we do need the ${rand(ctx.order.deposit)} deposit (50%) first — you can pay by EFT and send proof here. We'll hold the slot for 24 hours. 🤍`;
   }
-  const { understanding: u, calendar, policy, order } = ctx;
-  const parts: string[] = [];
-  if (u.emotion === "bereavement") parts.push(`${name}, I'm so sorry for your loss. Please accept our condolences. 🤍`);
-  else if (!u.greeting) parts.push(`Hi ${name}! Thanks for reaching out to ${business.name}.`);
-  else parts.push(`Hi ${name}! Lovely to hear from you.`);
-
-  const itemText = order.items.map((i) => `${i.qty} × ${i.name}${i.qty > 1 ? "s" : ""}`).join(" + ");
-  if (calendar.available) parts.push(`${calendar.label} is available for ${itemText} (${rand(order.total)} in total).`);
-  else if (calendar.alternative) parts.push(`Unfortunately ${calendar.label} is fully booked, but ${formatDate(calendar.alternative)} is open for ${itemText} (${rand(order.total)}).`);
-  else parts.push(`I've noted ${itemText} for ${rand(order.total)}.`);
-
-  if (policy.blocked) {
-    parts.push(
-      `To confirm, we ask for a 50% deposit (${rand(policy.deposit)}) on first orders, so I can't offer pay-on-delivery myself — but I've asked Thandi whether she can make an exception for you and will come back shortly.`,
-    );
-  } else if (!policy.returning) {
-    parts.push(`To confirm, we ask for a 50% deposit (${rand(policy.deposit)}) by EFT — shall I send the banking details?`);
-  } else {
-    parts.push(`Since you're a regular, you can pay on delivery. I've confirmed your order!`);
-  }
-  return parts.join(" ");
 }
 
 export const mockBrain: Brain = {
@@ -97,16 +90,15 @@ async function grokChat(messages: { role: string; content: string }[], json: boo
   return data.choices?.[0]?.message?.content ?? "";
 }
 
-const UNDERSTAND_SYSTEM = `You extract structured data from a WhatsApp message sent to a small South African home bakery.
+const UNDERSTAND_SYSTEM = `You extract structured intent from a WhatsApp message sent to ${business.name} (a South African student-freelancer design & web studio).
 Today is Friday 2026-11-13. Return ONLY JSON:
-{"intent": "order"|"faq_menu"|"faq_hours"|"faq_location"|"banking_details"|"order_status"|"complaint"|"other",
+{"intent": "order"|"scope_change"|"faq_rates"|"faq_hours"|"faq_location"|"banking_details"|"order_status"|"complaint"|"academic_integrity"|"other",
  "greeting": boolean, "emotion": "neutral"|"bereavement"|"urgent"|"frustrated",
- "items": [{"name": "cupcake"|"small cake"|"large cake"|"brownie box", "qty": number}],
+ "items": [{"name": "logo kit"|"social pack"|"3-page website"|"logo add-on", "qty": number}],
  "requestedDate": "YYYY-MM-DD" | null,
  "paymentTerm": "on_delivery"|"deposit"|"unspecified"}
-"greeting" is true only if the customer greets first. Resolve weekdays like "next Thursday" to the next upcoming date.
-"intent": "order" = wants to place an order; "faq_menu" = asks about products/prices; "faq_hours" = when you work; "faq_location" = where you are / delivery area;
-"banking_details" = wants to pay / asks for account details; "order_status" = asks about an existing order; "complaint" = unhappy; "other" = anything else.`;
+If the user asks to write, edit, or complete university coursework/assignments/exams, return intent "academic_integrity".
+If an existing client asks for extra deliverables beyond their agreed scope, return intent "scope_change".`;
 
 export const grokBrain: Brain = {
   engine: "grok",
@@ -118,12 +110,12 @@ export const grokBrain: Brain = {
     return parsed;
   },
   async compose(ctx) {
-    const system = `You are the WhatsApp assistant for ${business.name} (owner ${business.owner}), a South African home bakery.
-Style: warm, brief (max 4 sentences), plain South African English, light emoji at most one. If the customer mentions a loss, open with genuine condolences before business.
-Business policies:\n${policies.map((p) => `- ${p.code}: ${p.rule}`).join("\n")}
-Never invent prices, dates or policy exceptions: only use the facts in CONTEXT. If CONTEXT says policy.blocked, politely explain the rule and say you've asked the owner about an exception — do NOT grant it.
-If CONTEXT.kind is "info", answer using ONLY CONTEXT.facts. If CONTEXT.kind is "handoff", apologise if the customer is unhappy, do not promise refunds or fixes, and say ${business.owner.split(" ")[0]} will reply personally.`;
-    const raw = await grokChat([{ role: "system", content: system }, { role: "user", content: `CONTEXT:\n${JSON.stringify(ctx)}\n\nWrite the reply to the customer.` }], false);
+    const system = `You are Client Desk / Books / Planner for ${business.name} (owner ${business.owner}, ${business.degree} in ${business.area}).
+Style: crisp, warm, honest, brief (max 4 sentences), South African English, ZAR amounts.
+Studio policies:\n${policies.map((p) => `- ${p.code}: ${p.rule}`).join("\n")}
+Available packages: ${Object.entries(catalog).map(([k, v]) => `${k} ${rand(v.price)}`).join(", ")}.
+Never invent dates, prices, or promises: only use facts from CONTEXT. If CONTEXT.kind is "academic_refusal", firmly refuse coursework help.`;
+    const raw = await grokChat([{ role: "system", content: system }, { role: "user", content: `CONTEXT:\n${JSON.stringify(ctx)}\n\nDraft the WhatsApp message.` }], false);
     return raw.trim();
   },
 };

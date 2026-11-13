@@ -7,7 +7,7 @@ import { Badge, Btn, MonoLabel, Panel } from "@/components/ui";
 export function OpportunitiesBoard() {
   return (
     <div className="min-h-0 flex-1 overflow-y-auto p-4">
-      <Panel title="Opportunity radar — within 15 km of Soweto" code="OPP-01" right={<Badge tone="info">fixture data</Badge>}>
+      <Panel title="Opportunity radar — within 15 km of Johannesburg" code="OPP-01" right={<Badge tone="info">fixture data</Badge>}>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
           {leads.map((l) => (
             <div key={l.name} className="rounded border border-border p-3">
@@ -37,17 +37,20 @@ export function CrmBoard() {
   const { state } = useMetaxy();
   return (
     <div className="min-h-0 flex-1 overflow-y-auto p-4">
-      <Panel title="Customer memory" code="CRM-01" right={<Badge tone="info">{state.customers.length} customers</Badge>}>
+      <Panel title="Client memory & disambiguation" code="CRM-01" right={<Badge tone="info">{state.customers.length} clients</Badge>}>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {[...state.customers].reverse().map((c) => (
             <div key={c.id} className="rounded border border-border p-3">
-              <div className="flex items-center justify-between">
-                <div className="text-xs font-bold">{c.name}</div>
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <div className="text-xs font-bold">{c.name}</div>
+                  <MonoLabel className="text-muted-foreground">{c.business}</MonoLabel>
+                </div>
                 <MonoLabel className="text-muted-foreground">
-                  {c.orders} orders · last {c.lastOrder}
+                  {c.orders} projects · last {c.lastOrder}
                 </MonoLabel>
               </div>
-              <div className="mt-1 flex flex-wrap gap-1">
+              <div className="mt-1.5 flex flex-wrap gap-1">
                 {c.tags.map((t) => (
                   <Badge key={t}>{t}</Badge>
                 ))}
@@ -60,7 +63,9 @@ export function CrmBoard() {
                   </li>
                 ))}
               </ul>
-              <div className="mt-2 border-t border-border pt-2 text-[11px] text-muted-foreground">Follow-up: agent drafts a thank-you + repeat-order nudge 7 days after delivery.</div>
+              <div className="mt-2 border-t border-border pt-2 text-[11px] text-muted-foreground">
+                Follow-up: agent drafts a polite check-in 7 days after project delivery (opted-in clients only).
+              </div>
             </div>
           ))}
         </div>
