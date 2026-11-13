@@ -15,6 +15,8 @@ import { useEffect, useRef, useState, type CSSProperties } from "react"
  * - `sound={false}` hides every sound control (no AudioContext is ever created)
  * - `secondaryCta` replaces the "Listen" button with a link
  * - `cycleCaption` shows a caption next to the day/night toggle
+ * - `dayPoster` / `nightPoster` show a still while the footage loads (no black screen on slow networks)
+ * - `fadeTo` fades the bottom edge into the next section's colour
  */
 
 export interface ElsewhereLink {
@@ -25,6 +27,12 @@ export interface ElsewhereLink {
 export interface ElsewhereHeroProps {
   daySrc?: string
   nightSrc?: string
+  /** Still image shown until the day footage can play, e.g. "/hero/day.jpg" */
+  dayPoster?: string
+  /** Still image shown until the night footage can play */
+  nightPoster?: string
+  /** Colour the bottom edge fades into, for a calm hand-off to the next section */
+  fadeTo?: string
   /** Brand shown top-left */
   brand?: string
   /** Navigation links (hidden on small screens) */
@@ -303,6 +311,9 @@ function createAmbientEngine(ctx: AudioContext) {
 export default function ElsewhereHero({
   daySrc = DEFAULT_DAY,
   nightSrc = DEFAULT_NIGHT,
+  dayPoster,
+  nightPoster,
+  fadeTo,
   brand = "Elsewhere",
   links = DEFAULT_LINKS,
   navCta = { label: "Get the app", href: "#get" },
@@ -406,6 +417,7 @@ export default function ElsewhereHero({
       <video
         ref={dayVideoRef}
         src={daySrc}
+        poster={dayPoster}
         autoPlay
         loop
         muted
@@ -419,6 +431,7 @@ export default function ElsewhereHero({
       <video
         ref={nightVideoRef}
         src={nightSrc}
+        poster={nightPoster}
         autoPlay
         loop
         muted
@@ -438,6 +451,21 @@ export default function ElsewhereHero({
           pointerEvents: "none",
         }}
       />
+
+      {fadeTo && (
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: "30%",
+            background: `linear-gradient(180deg, transparent, ${fadeTo})`,
+            pointerEvents: "none",
+          }}
+        />
+      )}
 
       {/* NAVIGATION */}
       <header className="ew-nav" style={{ ...rise(0) }}>
