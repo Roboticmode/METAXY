@@ -13,11 +13,13 @@ const ACCENT = "#2f9e78";
 const font = (file: string) => readFile(join(process.cwd(), "node_modules/@fontsource", file));
 
 export default async function OpengraphImage() {
-  const [interMedium, interSemi, mono] = await Promise.all([
+  const [interMedium, interSemi, mono, markBuf] = await Promise.all([
     font("inter/files/inter-latin-500-normal.woff"),
     font("inter/files/inter-latin-600-normal.woff"),
     font("jetbrains-mono/files/jetbrains-mono-latin-500-normal.woff"),
+    readFile(join(process.cwd(), "public/brand/metaxy-mark-128.png")),
   ]);
+  const markDataUrl = `data:image/png;base64,${markBuf.toString("base64")}`;
 
   return new ImageResponse(
     (
@@ -36,7 +38,7 @@ export default async function OpengraphImage() {
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <div style={{ width: 18, height: 18, background: PAPER }} />
+            <img src={markDataUrl} width={34} height={34} alt="" style={{ objectFit: "contain" }} />
             <div style={{ fontSize: 26, fontWeight: 600, letterSpacing: "0.3em" }}>METAXY</div>
           </div>
           <div style={{ display: "flex", fontFamily: "JetBrains Mono", fontSize: 18, letterSpacing: "0.12em", color: "rgba(245,243,236,0.6)" }}>

@@ -1,4 +1,5 @@
 import { ArrowRight, ArrowUpRight, Ban, Check, Hand, Plus } from "lucide-react";
+import { MetaxyMark } from "@/components/ui/metaxy-mark";
 import { Container, CtaLink, Eyebrow, Heading, Lede, reveal } from "./primitives";
 import { AmbientVideo } from "./ambient-video";
 import { SessionCta } from "./sign-in-section";
@@ -222,8 +223,8 @@ export function Footer() {
     <footer className="landing-dark border-t border-white/10 bg-[var(--landing-ink)] text-[var(--landing-paper)]">
       <Container className="grid gap-10 py-14 md:grid-cols-[1.4fr_1fr_1fr]">
         <div>
-          <p className="flex items-center gap-2">
-            <span aria-hidden className="size-3 bg-[var(--landing-paper)]" />
+          <p className="flex items-center gap-2.5">
+            <MetaxyMark size={22} tone="dark" />
             <span className="text-sm font-bold uppercase tracking-[0.2em]">METAXY</span>
           </p>
           <p className="mt-4 max-w-[36ch] text-sm leading-relaxed text-[var(--landing-paper)]/70">

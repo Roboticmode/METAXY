@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ArrowRight } from "lucide-react";
+import { MetaxyMark } from "@/components/ui/metaxy-mark";
 import { useLandingSession } from "./auth-session";
 
 const links = [
@@ -37,7 +38,7 @@ export function LandingNav() {
         className="flex h-14 items-center gap-2 rounded-full border border-white/10 bg-[oklch(0.155_0.008_130/0.82)] pl-5 pr-2 text-[var(--landing-paper)] shadow-[0_20px_40px_-20px_oklch(0_0_0/0.6)] backdrop-blur-xl backdrop-saturate-150"
       >
         <a href="#top" className="mr-auto flex items-center gap-2 text-xs font-bold uppercase tracking-[0.25em] lg:mr-4">
-          <span aria-hidden className="size-2.5 bg-[var(--landing-paper)]" />
+          <MetaxyMark size={20} tone="dark" />
           METAXY
         </a>
         <ul className="mr-auto hidden items-center gap-1 md:flex">
