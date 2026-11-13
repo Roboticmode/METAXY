@@ -61,7 +61,7 @@ export function LandingNav() {
           href="/dashboard"
           className="group inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-[var(--landing-paper)] px-4 text-[13px] font-medium text-[var(--landing-ink)] transition-colors hover:bg-white"
         >
-          {email ? "Open workspace" : "Try the demo"} <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden />
+          {email ? "Open workspace" : "Try the live demo"} <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden />
         </a>
       </nav>
     </div>

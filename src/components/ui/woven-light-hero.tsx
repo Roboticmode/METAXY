@@ -12,6 +12,12 @@ export interface WovenLightHeroProps {
   ctaLabel?: string;
   ctaHref?: string;
   onCtaClick?: () => void;
+  /** Optional secondary text link under the CTA. */
+  secondaryCta?: { label: string; href: string };
+  /** Anchor links shown in the top nav (hidden on small screens). */
+  links?: { label: string; href: string }[];
+  /** Colour the bottom edge fades into, so the next section joins smoothly. */
+  fadeTo?: string;
 }
 
 // --- Main Hero Component ---
@@ -22,6 +28,9 @@ export const WovenLightHero = ({
   ctaLabel = "Explore the Weave",
   ctaHref,
   onCtaClick,
+  secondaryCta,
+  links,
+  fadeTo,
 }: WovenLightHeroProps) => {
   const textControls = useAnimation();
   const buttonControls = useAnimation();
@@ -54,9 +63,9 @@ export const WovenLightHero = ({
   }, [textControls, buttonControls, headline]);
 
   return (
-    <div className="relative flex h-screen w-full flex-col items-center justify-center overflow-hidden bg-black dark:bg-white">
+    <div className="relative flex h-dvh min-h-[560px] w-full flex-col items-center justify-center overflow-hidden bg-black dark:bg-white">
       <WovenCanvas />
-      <HeroNav brand={brand} />
+      <HeroNav brand={brand} links={links} />
       <div className="relative z-10 px-4 text-center">
         <h1
           className="text-5xl text-white md:text-8xl dark:text-slate-900"
@@ -107,14 +116,30 @@ export const WovenLightHero = ({
               {ctaLabel}
             </button>
           )}
+          {secondaryCta ? (
+            <a
+              href={secondaryCta.href}
+              className="mt-5 block text-sm font-medium text-slate-300 underline-offset-4 hover:text-white hover:underline dark:text-slate-600"
+              style={{ fontFamily: "'Inter', sans-serif" }}
+            >
+              {secondaryCta.label}
+            </a>
+          ) : null}
         </motion.div>
       </div>
+      {fadeTo ? (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 bottom-0 z-[5] h-40"
+          style={{ background: `linear-gradient(180deg, transparent, ${fadeTo})` }}
+        />
+      ) : null}
     </div>
   );
 };
 
 // --- Navigation Component ---
-const HeroNav = ({ brand }: { brand: string }) => {
+const HeroNav = ({ brand, links }: { brand: string; links?: { label: string; href: string }[] }) => {
   return (
     <motion.nav initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { delay: 0.5, duration: 0.8 } }} className="absolute top-0 right-0 left-0 z-20 p-6">
       <div className="mx-auto flex max-w-7xl items-center justify-between">
@@ -124,6 +149,17 @@ const HeroNav = ({ brand }: { brand: string }) => {
             {brand}
           </span>
         </div>
+        {links?.length ? (
+          <ul className="hidden items-center gap-5 md:flex">
+            {links.map((l) => (
+              <li key={l.href}>
+                <a href={l.href} className="text-sm text-white/75 hover:text-white dark:text-slate-700" style={{ fontFamily: "'Inter', sans-serif" }}>
+                  {l.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </div>
     </motion.nav>
   );

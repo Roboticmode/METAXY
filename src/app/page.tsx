@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { MetaxyHero } from "@/components/landing/metaxy-hero";
+import { HeroCarousel } from "@/components/landing/hero-carousel";
 import { NIGHT_POSTER, NIGHT_SRC } from "@/components/landing/hero-media";
 import { SignInSection } from "@/components/landing/sign-in-section";
 import { LandingNav } from "@/components/landing/landing-nav";
@@ -30,7 +30,7 @@ export default function LandingPage() {
       <RevealObserver />
 
       <main>
-        <MetaxyHero />
+        <HeroCarousel />
         <div id="landing-hero-end" aria-hidden />
         <TrustStrip />
         <Problem />

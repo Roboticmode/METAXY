@@ -10,10 +10,33 @@ import { MonoLabel } from "@/components/ui";
  * Option 2 background test: split hero / auth section inspired by 21st.dev/@solaceui/components/auth-section-1
  * using `@paper-design/shaders-react` GrainGradient paired with METAXY's AuthCard.
  */
-export function AuthGrainHero() {
+export interface AuthGrainHeroProps {
+  /** Signed-in owner's email; shows the signed-in state in the card. */
+  userEmail?: string | null;
+  eyebrow?: string;
+  headline?: string;
+  subline?: string;
+  primaryCta?: { label: string; href: string };
+  secondaryCta?: { label: string; href: string };
+  /** Hide the "Option 2" lab label (used on the real landing page). */
+  hideLabel?: boolean;
+  /** Colour the bottom edge fades into, so the next section joins smoothly. */
+  fadeTo?: string;
+}
+
+export function AuthGrainHero({
+  userEmail = null,
+  eyebrow = "Informal → Formal · South Africa",
+  headline = "From hustle to formal business.",
+  subline = "An AI command centre that runs WhatsApp enquiries, two-sided studio and university capacity, overdue EFTs, and CIPC/SARS readiness—with human approval at every edge.",
+  primaryCta = { label: "Try live demo", href: "/dashboard" },
+  secondaryCta,
+  hideLabel = false,
+  fadeTo,
+}: AuthGrainHeroProps = {}) {
   return (
     <section className="relative grid min-h-screen w-full grid-cols-1 bg-background text-foreground lg:grid-cols-12">
-      <div className="relative flex min-h-[420px] flex-col justify-between overflow-hidden bg-[#0c1210] p-8 text-[#f5f3ec] sm:p-12 lg:col-span-7">
+      <div className="relative flex min-h-[420px] flex-col justify-between overflow-hidden bg-[#0c1210] p-8 pb-20 text-[#f5f3ec] sm:p-12 sm:pb-20 lg:col-span-7">
         <div className="pointer-events-none absolute inset-0">
           <GrainGradient
             style={{ width: "100%", height: "100%" }}
@@ -33,26 +56,30 @@ export function AuthGrainHero() {
             <span className="size-3 bg-[#f5f3ec]" aria-hidden />
             <span className="text-sm font-bold uppercase tracking-[0.22em]">METAXY</span>
           </div>
-          <MonoLabel className="text-white/70">Option 2 · Grain Gradient (@solaceui auth-section-1)</MonoLabel>
+          {hideLabel ? null : <MonoLabel className="text-white/70">Option 2 · Grain Gradient (@solaceui auth-section-1)</MonoLabel>}
         </div>
 
         <div className="relative z-10 my-12 max-w-xl space-y-5">
           <MonoLabel className="inline-block rounded-full border border-white/20 bg-white/10 px-3 py-1 text-white/90">
-            Informal → Formal · South Africa
+            {eyebrow}
           </MonoLabel>
-          <h1 className="text-4xl font-semibold tracking-tight text-white sm:text-6xl">
-            From hustle to formal business.
-          </h1>
-          <p className="text-base leading-relaxed text-white/80">
-            An AI command centre that runs WhatsApp enquiries, two-sided studio and university capacity, overdue EFTs, and CIPC/SARS readiness—with human approval at every edge.
-          </p>
+          <h1 className="text-4xl font-semibold tracking-tight text-white sm:text-6xl">{headline}</h1>
+          <p className="text-base leading-relaxed text-white/80">{subline}</p>
           <div className="flex flex-wrap gap-3 pt-2">
             <Link
-              href="/dashboard"
+              href={primaryCta.href}
               className="inline-flex items-center gap-2 rounded-full bg-[#f5f3ec] px-5 py-2.5 text-xs font-bold uppercase tracking-widest text-[#0c1210] transition-colors hover:bg-white"
             >
-              Try live demo <ArrowRight className="size-3.5" />
+              {primaryCta.label} <ArrowRight className="size-3.5" />
             </Link>
+            {secondaryCta ? (
+              <a
+                href={secondaryCta.href}
+                className="inline-flex items-center rounded-full border border-white/25 px-5 py-2.5 text-xs font-bold uppercase tracking-widest text-white/90 transition-colors hover:bg-white/10"
+              >
+                {secondaryCta.label}
+              </a>
+            ) : null}
           </div>
         </div>
 
@@ -76,9 +103,16 @@ export function AuthGrainHero() {
               Tests the GrainGradient side-panel background paired with METAXY&apos;s Supabase Auth &amp; Demo launcher.
             </p>
           </div>
-          <AuthCard userEmail={null} />
+          <AuthCard userEmail={userEmail} />
         </div>
       </div>
+      {fadeTo ? (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 bottom-0 z-[5] h-32"
+          style={{ background: `linear-gradient(180deg, transparent, ${fadeTo})` }}
+        />
+      ) : null}
     </section>
   );
 }
