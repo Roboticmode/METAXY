@@ -114,7 +114,9 @@ export function createProject(input: NewProject, st: OpState): OpResult {
     payment: `Quote drafted · ${rand(deposit)} deposit on approval`,
   };
 
-  const dateLine = fit.fits
+  const dateLine = !fit.feasible
+    ? `my calendar is fully booked for the next few weeks, so I'll confirm a delivery date with you before taking it on`
+    : fit.fits
     ? `${formatDate(fit.date)} works for delivery`
     : input.dueDate
       ? `${formatDate(input.dueDate)} would mean rushing (${fit.reason}), so I can deliver on ${formatDate(fit.date)}`
