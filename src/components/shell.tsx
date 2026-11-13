@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Building2,
+  Bot,
   Gauge,
   GraduationCap,
   LogIn,
@@ -13,23 +13,22 @@ import {
   MessageCircle,
   PanelLeftClose,
   PanelLeftOpen,
-  PanelRightClose,
-  PanelRightOpen,
   Radar,
   ShieldCheck,
   Users,
   X,
 } from "lucide-react";
-import { business, TURNOVER } from "@/lib/agent/data";
+import { business } from "@/lib/agent/data";
 import type { Tab } from "@/lib/agent/types";
 import { createClient } from "@/lib/supabase/client";
 import { useMetaxy } from "@/lib/store";
 import { ComplianceBoard } from "@/components/compliance-board";
 import { CrmBoard, OpportunitiesBoard } from "@/components/other-boards";
 import { OperationsBoard } from "@/components/operations-board";
-import { WhatsAppPanel } from "@/components/whatsapp-panel";
 import { WhatsAppBoard } from "@/components/whatsapp-board";
+import { AgentDock } from "@/components/agent-console";
 import { Badge, MonoLabel, cn } from "@/components/ui";
+import { MetaxyMark } from "@/components/ui/metaxy-mark";
 import { useColumns, useSheet } from "@/components/use-columns";
 
 const tabs: { id: Tab; code: string; label: string; short: string; icon: typeof Gauge }[] = [
@@ -40,8 +39,10 @@ const tabs: { id: Tab; code: string; label: string; short: string; icon: typeof 
   { id: "crm", code: "M-05", label: "CRM & Retention", short: "CRM", icon: Users },
 ];
 
-/** Shared ids for aria-controls. */
-const ids = { leftNav: "left-nav", leftSheet: "left-sheet", phone: "phone-panel" };
+/** Shared ids for aria-controls. The phone keeps its id inside the WhatsApp module. */
+const ids = { leftNav: "left-nav", leftSheet: "left-sheet" };
+
+const studioMemory = `${business.owner} balances a BSc IS degree with freelance clients in ${business.area}. CIPC, SARS, and the study calendar stay with the studio.`;
 
 const motion = "duration-200 ease-out motion-reduce:transition-none";
 
@@ -56,21 +57,34 @@ export function Shell({ userEmail = null }: { userEmail?: string | null }) {
     router.refresh();
   }
   const cols = useColumns();
-  const { bp, raw, leftOpen, rightOpen } = cols;
+  const { bp, raw, leftOpen, rightOpen, agentOpen, agentWidth } = cols;
   const pendingApprovals = state.approvals.filter((a) => a.status === "pending").length;
   const sheetMode = bp === "tablet" || bp === "phone";
 
   // --- column actions: on small screens only one sheet is open at a time ---
   const setLeftOpen = (v: boolean) => {
-    if (v && sheetMode) cols.setRightOpen(false);
+    if (v && sheetMode) {
+      cols.setRightOpen(false);
+      cols.setAgentOpen(false);
+    }
     cols.setLeftOpen(v);
   };
   const setRightOpen = (v: boolean) => {
-    if (v && sheetMode) cols.setLeftOpen(false);
+    if (v && sheetMode) {
+      cols.setLeftOpen(false);
+      cols.setAgentOpen(false);
+    }
     cols.setRightOpen(v);
   };
   const toggleLeft = () => setLeftOpen(!leftOpen);
   const toggleRight = () => setRightOpen(!rightOpen);
+  const setAgentOpen = (v: boolean) => {
+    if (v && sheetMode) {
+      cols.setLeftOpen(false);
+      cols.setRightOpen(false);
+    }
+    cols.setAgentOpen(v);
+  };
 
   const goTab = (t: Tab) => {
     setTab(t);
@@ -133,7 +147,7 @@ export function Shell({ userEmail = null }: { userEmail?: string | null }) {
   const railOnlyCls = raw.left === true ? "hidden" : raw.left === false ? "" : "xl:hidden";
   const headerJustify = raw.left === true ? "justify-between" : raw.left === false ? "justify-center" : "justify-center xl:justify-between";
   const footerJustify = raw.left === true ? "justify-start" : raw.left === false ? "justify-center" : "justify-center xl:justify-start";
-  const anySheetOpen = sheetMode && (leftOpen || rightOpen);
+  const anySheetOpen = sheetMode && (leftOpen || rightOpen || agentOpen);
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-background text-foreground">
@@ -149,12 +163,17 @@ export function Shell({ userEmail = null }: { userEmail?: string | null }) {
           >
             <Menu className="size-4" />
           </IconButton>
-          <Link href="/" className="flex shrink-0 items-center gap-2 hover:opacity-80">
-            <div className="size-3 bg-foreground" aria-hidden />
-            <span className="text-sm font-bold uppercase tracking-tight">METAXY</span>
-            <MonoLabel className="ml-1 hidden text-muted-foreground sm:inline">/ ZA</MonoLabel>
+          <Link href="/" className="flex shrink-0 items-center gap-2.5 hover:opacity-80">
+            <MetaxyMark size={22} tone="light" />
+            <span className="text-xs font-bold uppercase tracking-[0.22em]">METAXY</span>
           </Link>
-          <BusinessStrip className="hidden min-w-0 border-l border-border pl-3 md:flex" />
+        </div>
+        <div className="pointer-events-none absolute left-1/2 hidden -translate-x-1/2 md:flex">
+          <span className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary px-3 py-1 text-[11px]">
+            <span className="size-1.5 rounded-full bg-accent" aria-hidden />
+            <span className="font-medium">{business.name}</span>
+            <span className="text-muted-foreground">live demo</span>
+          </span>
         </div>
         <div className="flex shrink-0 items-center gap-1.5 md:gap-2">
           {state.examMode ? (
@@ -183,6 +202,16 @@ export function Shell({ userEmail = null }: { userEmail?: string | null }) {
             <MessageCircle className="size-4 text-[#128C4B]" />
             <span className="hidden sm:inline">Chat</span>
             {chatHasNews ? <CountBadge n={chatUnread} className="absolute -top-1.5 -right-1.5 bg-[#25D366] text-white" /> : null}
+          </button>
+          <button
+            type="button"
+            onClick={() => setAgentOpen(!agentOpen)}
+            aria-expanded={agentOpen}
+            aria-controls="agent-dock"
+            className="relative flex h-8 cursor-pointer items-center gap-1.5 rounded-sm border border-border px-2 text-[11px] font-bold uppercase tracking-widest transition-colors hover:bg-secondary pointer-coarse:h-10 xl:hidden"
+          >
+            <Bot className="size-4" />
+            <span className="hidden sm:inline">Agents</span>
           </button>
           {/* ≥1280: email + Sign out inline (as upstream). Below that they live in the avatar menu (and the phone menu sheet). */}
           <div className="hidden items-center gap-2 xl:flex">
@@ -285,6 +314,8 @@ export function Shell({ userEmail = null }: { userEmail?: string | null }) {
             />
           </div>
         </aside>
+
+        <AgentDock open={agentOpen} sheet={sheetMode} width={agentWidth} onOpenChange={setAgentOpen} onWidth={cols.setAgentWidth} />
       </div>
 
       {/* ───────────── Phone: bottom tab bar ───────────── */}
@@ -328,7 +359,7 @@ export function Shell({ userEmail = null }: { userEmail?: string | null }) {
       >
         <div className="flex h-12 shrink-0 items-center justify-between border-b border-border px-3">
           <Link href="/" className="flex items-center gap-2 hover:opacity-80">
-            <div className="size-3 bg-foreground" aria-hidden />
+            <MetaxyMark size={22} tone="light" />
             <span className="text-sm font-bold uppercase tracking-tight">METAXY</span>
           </Link>
           <IconButton label="Close menu" aria-expanded={leftOpen} aria-controls={ids.leftSheet} onClick={() => cols.setLeftOpen(false)}>
@@ -371,6 +402,7 @@ export function Shell({ userEmail = null }: { userEmail?: string | null }) {
         onClick={() => {
           cols.setLeftOpen(false);
           cols.setRightOpen(false);
+          cols.setAgentOpen(false);
         }}
         className={cn("fixed inset-0 z-30 bg-foreground/25 transition-opacity xl:hidden", motion, anySheetOpen ? "opacity-100" : "pointer-events-none opacity-0")}
       />

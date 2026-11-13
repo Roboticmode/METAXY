@@ -1,151 +1,239 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
-import { ArrowRight, Check, Mic, MicOff, PhoneOff, Send, ShieldAlert, Sparkles, X } from "lucide-react";
+import { useEffect, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { ArrowRight, Check, Mic, MicOff, PanelRightClose, PanelRightOpen, PhoneOff, Plus, Send, ShieldAlert, X } from "lucide-react";
 import { SUGGESTED_PROMPTS } from "@/lib/assistant/types";
-import { useMetaxy, type AssistantMsg } from "@/lib/store";
+import { useMetaxy, type AgentSession, type AssistantMsg, type WorkspaceAgentRole } from "@/lib/store";
 import { Badge, Btn, MonoLabel, cn } from "@/components/ui";
-import { ThinkingOrb } from "@/components/ui/thinking-orbs";
+import { ThinkingOrb, type OrbState } from "@/components/ui/thinking-orbs";
+import { AGENT_WIDTH_MAX, AGENT_WIDTH_MIN } from "@/components/use-columns";
 import { useLiveVoice } from "./use-live-voice";
 
 /**
- * "Ask METAXY" — the owner talks to the agent (text via GPT-6 Luna or live voice via GPT-Live 1),
- * and the agent moves around the dashboard. Launcher sits bottom-right (reserved corner, z-50).
+ * Right-hand multi-agent rail. Mirrors the left navigation: same surface, collapsible,
+ * and wide enough to spawn several agents. One of them can hold the live voice session.
  */
-export function AgentConsole() {
-  const { state, askAssistant, confirmAction, cancelAction, getSnapshot, pushLiveTranscript, pushLiveMessage, pushLiveStep, runLiveTool } = useMetaxy();
-  const { messages, busy } = state.assistant;
-  const [open, setOpen] = useState(false);
+export function AgentDock({
+  open,
+  sheet,
+  width,
+  onOpenChange,
+  onWidth,
+}: {
+  open: boolean;
+  sheet: boolean;
+  width: number;
+  onOpenChange: (open: boolean) => void;
+  onWidth: (width: number) => void;
+}) {
+  const {
+    state,
+    askAssistant,
+    confirmAction,
+    cancelAction,
+    spawnAgent,
+    setActiveAgent,
+    closeAgent,
+    setLiveAgent,
+    getSnapshot,
+    pushLiveTranscript,
+    pushLiveMessage,
+    pushLiveStep,
+    runLiveTool,
+  } = useMetaxy();
+  const active = state.agents.find((agent) => agent.id === state.activeAgentId) ?? state.agents[0];
+  const messages = active?.messages ?? [];
+  const busy = active?.busy ?? false;
   const [draft, setDraft] = useState("");
-  const launcherRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const threadRef = useRef<HTMLDivElement>(null);
+  const handoff = useRef(false);
 
   const live = useLiveVoice({ getSnapshot, pushLiveTranscript, pushLiveMessage, pushLiveStep, runLiveTool });
+  const liveHere = !!active && state.liveAgentId === active.id && (live.status === "live" || live.status === "connecting");
+  const pending = state.agents.reduce((n, agent) => n + (pendingConfirms(agent.messages) ? 1 : 0), 0);
 
-  // keyboard: Ctrl/⌘+K toggles, Esc closes and hands focus back to the launcher
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        setOpen((o) => {
-          if (o) requestAnimationFrame(() => launcherRef.current?.focus());
-          return !o;
-        });
-      } else if (e.key === "Escape" && open) {
+        onOpenChange(!open);
+      } else if (e.key === "Escape" && open && sheet) {
         e.preventDefault();
-        setOpen(false);
-        launcherRef.current?.focus();
+        onOpenChange(false);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
+  }, [onOpenChange, open, sheet]);
 
   useEffect(() => {
     if (open) inputRef.current?.focus();
-  }, [open]);
+  }, [open, active?.id]);
 
   useEffect(() => {
     const el = threadRef.current;
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-  }, [messages.length, busy, open, live.status]);
+  }, [messages.length, busy, open, live.status, active?.id]);
+
+  useEffect(() => {
+    if (!handoff.current || live.status !== "idle") return;
+    handoff.current = false;
+    void live.connect();
+  }, [live]);
+
+  useEffect(() => {
+    if (state.liveAgentId) return;
+    if (live.status === "live" || live.status === "connecting") live.disconnect();
+  }, [live, state.liveAgentId]);
 
   const submit = (text: string) => {
-    if (!text.trim() || busy) return;
+    if (!active || !text.trim() || busy) return;
     setDraft("");
-    if (live.status === "live" && live.sendTextTurn(text)) return;
-    void askAssistant(text);
+    if (liveHere && live.status === "live" && live.sendTextTurn(text)) return;
+    void askAssistant(text, active.id);
   };
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     submit(draft);
   };
-  const close = () => {
-    setOpen(false);
-    launcherRef.current?.focus();
+  const toggleLive = () => {
+    if (!active) return;
+    const sessionOpen = live.status === "live" || live.status === "connecting";
+    if (sessionOpen && state.liveAgentId === active.id) {
+      handoff.current = false;
+      live.disconnect();
+      setLiveAgent(null);
+      return;
+    }
+    if (sessionOpen) {
+      live.disconnect();
+      setLiveAgent(active.id);
+      handoff.current = true;
+      return;
+    }
+    setLiveAgent(active.id);
+    void live.connect();
   };
 
-  const toggleLive = () => {
-    if (live.status === "live" || live.status === "connecting") {
-      live.disconnect();
-    } else {
-      void live.connect();
-    }
+  const startResize = (e: ReactPointerEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = width;
+    const move = (ev: PointerEvent) => {
+      onWidth(Math.min(AGENT_WIDTH_MAX, Math.max(AGENT_WIDTH_MIN, startW - (ev.clientX - startX))));
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
   };
+
+  const liveAgent = state.agents.find((agent) => agent.id === state.liveAgentId);
 
   return (
-    <>
-      <button
-        ref={launcherRef}
-        type="button"
-        onClick={() => (open ? close() : setOpen(true))}
-        aria-expanded={open}
-        aria-controls="agent-console"
-        aria-keyshortcuts="Control+K Meta+K"
-        className={cn(
-          "fixed right-4 bottom-4 z-50 flex cursor-pointer items-center gap-2 rounded-full border border-foreground bg-foreground px-4 py-2.5 text-background shadow-lg transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
-          open && "max-sm:hidden",
-        )}
-      >
-        {open ? (
-          <X className="size-4" />
-        ) : live.status === "live" || live.status === "connecting" || busy ? (
-          <ThinkingOrb
-            state={live.status === "live" ? (live.muted ? "breathing" : "listening") : live.status === "connecting" ? "connecting" : "working"}
-            size={20}
-            theme="dark"
-            color="#10b981"
-            aria-hidden
-          />
-        ) : (
-          <Sparkles className="size-4 text-accent" />
-        )}
-        <span className="text-xs font-bold uppercase tracking-widest">
-          {open ? "Close" : live.status === "live" ? "Live · METAXY" : "Ask METAXY"}
-        </span>
-        {!open ? <kbd className="hidden rounded-sm border border-background/30 px-1 font-mono text-[10px] text-background/70 sm:inline">Ctrl K</kbd> : null}
-        {!open && pendingConfirms(messages) ? <span className="absolute -top-1 -right-1 size-3 rounded-full border-2 border-background bg-[var(--warning)]" aria-label="Waiting for your confirmation" /> : null}
-      </button>
-
-      {open ? (
-        <section
-          id="agent-console"
-          role="dialog"
-          aria-label="Ask METAXY"
-          className="fixed inset-0 z-50 flex flex-col bg-card text-foreground sm:inset-auto sm:right-4 sm:bottom-18 sm:h-[min(620px,calc(100vh-6.5rem))] sm:w-[400px] sm:rounded sm:border sm:border-border sm:shadow-2xl"
+    <aside
+      id="agent-dock"
+      aria-label="Agents"
+      className={cn(
+        "bg-secondary text-foreground",
+        open && sheet && "fixed inset-y-0 right-0 z-50 flex w-full max-w-[440px] flex-col border-l border-border pt-[env(safe-area-inset-top)] shadow-2xl",
+        !open && "relative hidden w-10 shrink-0 flex-col border-l border-border xl:flex",
+        open && !sheet && "relative flex min-h-0 shrink-0 flex-col border-l border-border",
+      )}
+      style={open && !sheet ? { width } : undefined}
+    >
+      {!open ? (
+        <button
+          type="button"
+          onClick={() => onOpenChange(true)}
+          aria-expanded={false}
+          aria-controls="agent-console"
+          className="flex h-full cursor-pointer flex-col items-center gap-3 py-3 hover:bg-foreground/5"
         >
-          <header className="flex shrink-0 items-center justify-between border-b border-border px-3 py-2">
-            <div className="flex items-center gap-2">
-              <div className={cn("size-2.5", live.status === "live" ? "animate-pulse rounded-full bg-emerald-500" : "bg-accent")} aria-hidden />
-              <h2 className="text-xs font-bold uppercase tracking-tight">Ask METAXY</h2>
-              <MonoLabel className="text-muted-foreground">Agents prepare · you decide</MonoLabel>
+          <PanelRightOpen className="size-4 text-muted-foreground" />
+          <span className="relative">
+            <ThinkingOrb state={live.status === "live" ? "listening" : "breathing"} size={20} theme="light" color="#10b981" aria-hidden />
+            {pending ? <span className="absolute -top-1 -right-1 size-2 rounded-full bg-[var(--warning)]" /> : null}
+          </span>
+          <MonoLabel className="text-muted-foreground [writing-mode:vertical-rl]">Agents · live</MonoLabel>
+        </button>
+      ) : active ? (
+        <section id="agent-console" aria-label={active.title} className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {open && !sheet ? (
+            <button
+              type="button"
+              aria-label="Drag to resize agents"
+              onPointerDown={startResize}
+              className="absolute top-0 bottom-0 left-0 z-10 w-1.5 cursor-col-resize hover:bg-foreground/15"
+            />
+          ) : null}
+          <header className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2">
+            <div className="flex min-w-0 items-center gap-2">
+              <ThinkingOrb state={orbFor(active, liveHere, live.muted, busy)} size={20} theme="light" color="#10b981" aria-hidden />
+              <div className="min-w-0">
+                <h2 className="truncate text-xs font-bold uppercase tracking-tight">{active.title}</h2>
+                <MonoLabel className="text-muted-foreground">Agents prepare · you decide</MonoLabel>
+              </div>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex shrink-0 items-center gap-1">
               <button
                 type="button"
                 onClick={toggleLive}
-                disabled={live.status === "connecting"}
-                title={live.status === "live" ? "End live voice session" : "Start live voice with GPT-Live 1"}
+                disabled={live.status === "connecting" && state.liveAgentId === active.id}
+                title={liveHere ? "End live voice" : "Go live with this agent"}
                 className={cn(
                   "flex h-7 cursor-pointer items-center gap-1 rounded-sm border px-2 font-mono text-[10px] font-bold uppercase transition-colors disabled:cursor-wait disabled:opacity-60",
-                  live.status === "live"
-                    ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                    : live.status === "connecting"
-                      ? "border-accent/50 bg-accent/10 text-accent"
-                      : "border-border text-muted-foreground hover:bg-secondary hover:text-foreground",
+                  liveHere
+                    ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-700"
+                    : "border-border text-muted-foreground hover:bg-foreground/5 hover:text-foreground",
                 )}
               >
-                {live.status === "live" ? <PhoneOff className="size-3" /> : <Mic className="size-3" />}
-                <span>{live.status === "live" ? "End" : live.status === "connecting" ? "Linking…" : "Go Live"}</span>
+                {liveHere && live.status === "live" ? <PhoneOff className="size-3" /> : <Mic className="size-3" />}
+                <span>{liveHere ? (live.status === "connecting" ? "Linking…" : "End") : "Go Live"}</span>
               </button>
-              <button type="button" onClick={close} className="grid size-7 cursor-pointer place-items-center rounded-sm text-muted-foreground hover:bg-secondary hover:text-foreground" aria-label="Close console">
-                <X className="size-4" />
+              <button
+                type="button"
+                onClick={() => onOpenChange(false)}
+                className="grid size-7 cursor-pointer place-items-center rounded-sm text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
+                aria-label={sheet ? "Close agents" : "Collapse agents"}
+              >
+                <X className="size-4 xl:hidden" />
+                <PanelRightClose className="hidden size-4 xl:block" />
               </button>
             </div>
           </header>
+          <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border px-2 py-1.5">
+            {state.agents.map((agent) => {
+              const selected = agent.id === active.id;
+              const holdsLive = agent.id === state.liveAgentId && (live.status === "live" || live.status === "connecting");
+              return (
+                <div key={agent.id} className={cn("flex shrink-0 items-center rounded-full border", selected ? "border-foreground bg-foreground text-background" : "border-border")}>
+                  <button type="button" onClick={() => setActiveAgent(agent.id)} className="cursor-pointer px-2.5 py-1 text-[11px] font-medium" aria-current={selected ? "true" : undefined}>
+                    {agent.title}
+                    {holdsLive ? " · live" : ""}
+                  </button>
+                  {state.agents.length > 1 ? (
+                    <button
+                      type="button"
+                      aria-label={`Close ${agent.title}`}
+                      onClick={() => closeAgent(agent.id)}
+                      className="mr-1 grid size-4 cursor-pointer place-items-center rounded-full opacity-70 hover:opacity-100"
+                    >
+                      <X className="size-3" />
+                    </button>
+                  ) : null}
+                </div>
+              );
+            })}
+            <button type="button" onClick={spawnAgent} className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-full border border-dashed border-border px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:text-foreground">
+              <Plus className="size-3" /> Add agent
+            </button>
+          </div>
 
-          {live.status === "live" || live.status === "connecting" ? (
+          {liveHere ? (
             <div className="flex shrink-0 items-center justify-between gap-2 border-b border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-[11px]">
               <div className="flex min-w-0 items-center gap-1.5">
                 <ThinkingOrb
@@ -176,6 +264,10 @@ export function AgentConsole() {
                 <MonoLabel className="shrink-0 text-emerald-700 dark:text-emerald-300">Type below</MonoLabel>
               ) : null}
             </div>
+          ) : liveAgent && (live.status === "live" || live.status === "connecting") ? (
+            <button type="button" onClick={() => setActiveAgent(liveAgent.id)} className="shrink-0 border-b border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-left text-[11px] text-emerald-800">
+              Live voice is on {liveAgent.title}. Switch to that agent to talk.
+            </button>
           ) : live.status === "error" && live.error ? (
             <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--warning)]/40 bg-[var(--warning)]/10 px-3 py-1.5 text-[11px] text-[var(--warning)]">
               <span className="min-w-0 truncate">{live.error}</span>
@@ -189,17 +281,9 @@ export function AgentConsole() {
             {messages.length === 0 ? (
               <div className="space-y-3">
                 <div className="flex items-center gap-2.5 rounded border border-border bg-secondary/50 px-2.5 py-2">
-                  <ThinkingOrb
-                    state={live.status === "live" ? "listening" : live.status === "connecting" ? "connecting" : "composing"}
-                    size={32}
-                    theme="light"
-                    color="#10b981"
-                    aria-hidden
-                  />
+                  <ThinkingOrb state={orbFor(active, liveHere, live.muted, busy)} size={32} theme="light" color="#10b981" aria-hidden />
                   <div className="min-w-0">
-                    <MonoLabel className="block text-foreground">
-                      {live.status === "live" ? "Listening live" : "Ready"}
-                    </MonoLabel>
+                    <MonoLabel className="block text-foreground">{liveHere ? "Listening live" : "Ready"}</MonoLabel>
                     <p className="text-[11px] leading-snug text-muted-foreground">
                       Ask below or hit <span className="font-semibold text-foreground">Go Live</span> to talk in real time.
                     </p>
@@ -231,7 +315,7 @@ export function AgentConsole() {
             )}
             {busy ? (
               <div className="flex items-center gap-2 px-1 py-1 text-muted-foreground" aria-label="METAXY is working">
-                <ThinkingOrb state={live.status === "live" ? "solving" : "working"} size={20} theme="light" color="#10b981" aria-hidden />
+                <ThinkingOrb state={liveHere ? "solving" : "working"} size={20} theme="light" color="#10b981" aria-hidden />
                 <MonoLabel>working…</MonoLabel>
               </div>
             ) : null}
@@ -272,8 +356,22 @@ export function AgentConsole() {
           </form>
         </section>
       ) : null}
-    </>
+    </aside>
   );
+}
+
+function orbFor(agent: AgentSession, liveHere: boolean, muted: boolean, busy: boolean): OrbState {
+  if (liveHere && busy) return "solving";
+  if (liveHere) return muted ? "breathing" : "listening";
+  if (busy) return roleOrb(agent.role);
+  return "breathing";
+}
+
+function roleOrb(role: WorkspaceAgentRole): OrbState {
+  if (role === "Planner") return "searching";
+  if (role === "Books") return "shaping";
+  if (role === "Client Desk") return "composing";
+  return "working";
 }
 
 function pendingConfirms(messages: AssistantMsg[]) {

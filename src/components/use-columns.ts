@@ -5,9 +5,12 @@ import { useMetaxy } from "@/lib/store";
 
 /**
  * Layout breakpoints for the command centre (match Tailwind's `md` and `xl`).
- *  - desktop ≥ 1280: sidebar ⇄ 56 px icon rail, phone panel ⇄ slim tab (both in the flow)
- *  - tablet 768–1279: icon rail with an overlay sidebar, phone panel as a right sheet
- *  - phone  < 768:   left sheet + bottom tab bar, phone panel as a full-screen sheet
+ *  - desktop ≥ 1280: icon rail (optional expand) and the agent dock, both in the flow
+ *  - tablet 768–1279: icon rail, with the module list as an overlay when expanded; agent dock as a sheet
+ *  - phone  < 768:   menu sheet + bottom tab bar; agent dock as a sheet
+ *
+ * The WhatsApp phone lives inside the WhatsApp module, not as its own column.
+ * `rightOpen` stays so the agent's `set_columns` action still has somewhere to land.
  */
 export type Breakpoint = "phone" | "tablet" | "desktop";
 
@@ -30,9 +33,18 @@ export function useBreakpoint(): Breakpoint | null {
   return useSyncExternalStore(subscribeBreakpoint, readBreakpoint, () => null);
 }
 
-const STORAGE_KEY = "metaxy.layout.v1";
+const STORAGE_KEY = "metaxy.layout.v2";
 
-type Stored = { leftOpen?: boolean; rightOpen?: boolean };
+/** Right-hand multi-agent panel. Dragged width persists with the other column choices. */
+export const AGENT_WIDTH_DEFAULT = 380;
+export const AGENT_WIDTH_MIN = 320;
+export const AGENT_WIDTH_MAX = 640;
+
+type Stored = { leftOpen?: boolean; rightOpen?: boolean; agentOpen?: boolean; agentWidth?: number };
+
+function clampAgentWidth(n: number) {
+  return Math.min(AGENT_WIDTH_MAX, Math.max(AGENT_WIDTH_MIN, Math.round(n)));
+}
 
 function readStored(): Stored {
   try {
@@ -51,11 +63,14 @@ function writeStored(v: Stored) {
   }
 }
 
-/** Default "open" state per breakpoint, before any choice by the user. */
-export const columnDefaults: Record<Breakpoint, { leftOpen: boolean; rightOpen: boolean }> = {
-  desktop: { leftOpen: true, rightOpen: true },
-  tablet: { leftOpen: false, rightOpen: false },
-  phone: { leftOpen: false, rightOpen: false },
+/**
+ * Default "open" state per breakpoint, before any choice by the user.
+ * The left rail rests collapsed (icons only). Expanding it is optional.
+ */
+export const columnDefaults: Record<Breakpoint, { leftOpen: boolean; rightOpen: boolean; agentOpen: boolean }> = {
+  desktop: { leftOpen: false, rightOpen: false, agentOpen: true },
+  tablet: { leftOpen: false, rightOpen: false, agentOpen: false },
+  phone: { leftOpen: false, rightOpen: false, agentOpen: false },
 };
 
 /**
@@ -70,22 +85,28 @@ export function useColumns() {
   const bp = useBreakpoint();
   const [left, setLeft] = useState<boolean | null>(null);
   const [right, setRight] = useState<boolean | null>(null);
+  const [agent, setAgent] = useState<boolean | null>(null);
+  const [agentWidth, setAgentWidthState] = useState(AGENT_WIDTH_DEFAULT);
 
   // Whenever the breakpoint changes, go back to its defaults (plus the stored desktop choice).
   useEffect(() => {
+    const s = readStored();
+    if (typeof s.agentWidth === "number" && Number.isFinite(s.agentWidth)) setAgentWidthState(clampAgentWidth(s.agentWidth));
     if (bp === "desktop") {
-      const s = readStored();
       setLeft(typeof s.leftOpen === "boolean" ? s.leftOpen : null);
       setRight(typeof s.rightOpen === "boolean" ? s.rightOpen : null);
+      setAgent(typeof s.agentOpen === "boolean" ? s.agentOpen : null);
     } else {
       setLeft(null);
       setRight(null);
+      setAgent(null);
     }
   }, [bp]);
 
   const defaults = columnDefaults[bp ?? "desktop"];
   const leftOpen = left ?? defaults.leftOpen;
   const rightOpen = right ?? defaults.rightOpen;
+  const agentOpen = agent ?? defaults.agentOpen;
 
   // Bridge to the store so the agent console's `set_columns` action can open/close columns,
   // and so the store always knows what the owner last chose.
@@ -107,6 +128,18 @@ export function useColumns() {
     },
     [bp, setColumns],
   );
+  const setAgentOpen = useCallback(
+    (v: boolean) => {
+      setAgent(v);
+      if (bp === "desktop") writeStored({ agentOpen: v });
+    },
+    [bp],
+  );
+  const setAgentWidth = useCallback((v: number) => {
+    const next = clampAgentWidth(v);
+    setAgentWidthState(next);
+    writeStored({ agentWidth: next });
+  }, []);
 
   // Store → layout. Skip the first run: the store's initial value is a default, not a request.
   const storeLeft = state.ui.leftOpen;
@@ -138,10 +171,15 @@ export function useColumns() {
     raw: { left, right },
     leftOpen,
     rightOpen,
+    agentOpen,
+    agentWidth,
     setLeftOpen,
     setRightOpen,
+    setAgentOpen,
+    setAgentWidth,
     toggleLeft: () => setLeftOpen(!leftOpen),
     toggleRight: () => setRightOpen(!rightOpen),
+    toggleAgent: () => setAgentOpen(!agentOpen),
   };
 }
 

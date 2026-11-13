@@ -1,1 +1,1 @@
-export { AgentConsole } from "./agent-console";
+export { AgentDock } from "./agent-console";

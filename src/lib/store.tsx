@@ -34,6 +34,24 @@ export type AssistantMsg =
   | { id: number; role: "step"; text: string; tone: "ok" | "warn" }
   | { id: number; role: "confirm"; card: ConfirmCard; status: ConfirmStatus };
 
+/** Roles an owner can spawn in the right-hand panel. One shared business ledger; separate threads. */
+export type WorkspaceAgentRole = "Client Desk" | "Planner" | "Books" | "Custom";
+
+export type AgentSession = {
+  id: string;
+  role: WorkspaceAgentRole;
+  title: string;
+  messages: AssistantMsg[];
+  busy: boolean;
+  createdAt: number;
+};
+
+const WORKSPACE_ROLES: WorkspaceAgentRole[] = ["Client Desk", "Planner", "Books"];
+
+export function seedWorkspaceAgent(): AgentSession {
+  return { id: "agent-1", role: "Client Desk", title: "Client Desk", messages: [], busy: false, createdAt: 0 };
+}
+
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 type AssistantMsgInput = DistributiveOmit<AssistantMsg, "id">;
 
@@ -63,8 +81,11 @@ type State = {
   engine: "mock" | "grok" | "openai" | null;
   unseen: Partial<Record<Tab, number>>;
   ui: UiState;
-  /** the owner's conversation with METAXY (agent console) */
-  assistant: { messages: AssistantMsg[]; busy: boolean };
+  /** spawned owner-console agents. The business ledger above stays shared. */
+  agents: AgentSession[];
+  activeAgentId: string;
+  /** at most one agent holds the gpt-live-1 WebRTC session */
+  liveAgentId: string | null;
 };
 
 let seq = 1;
@@ -95,7 +116,9 @@ const initialState = (): State => ({
   engine: null,
   unseen: {},
   ui: { leftOpen: true, rightOpen: true, focus: null, complianceTask: "cipc" },
-  assistant: { messages: [], busy: false },
+  agents: [seedWorkspaceAgent()],
+  activeAgentId: "agent-1",
+  liveAgentId: null,
 });
 
 type Action =
@@ -112,10 +135,22 @@ type Action =
   | { type: "event"; event: AgentEvent; chat: string }
   | { type: "reset" }
   | { type: "ui"; patch: Partial<UiState> }
-  | { type: "assistant_msg"; msg: AssistantMsgInput }
-  | { type: "live_transcript"; role: "user" | "assistant"; delta: string; turnKey: string }
-  | { type: "assistant_busy"; busy: boolean }
+  | { type: "spawn_agent" }
+  | { type: "set_active_agent"; id: string }
+  | { type: "close_agent"; id: string }
+  | { type: "set_live_agent"; id: string | null }
+  | { type: "assistant_msg"; agentId: string; msg: AssistantMsgInput }
+  | { type: "live_transcript"; agentId: string; role: "user" | "assistant"; delta: string; turnKey: string }
+  | { type: "assistant_busy"; agentId: string; busy: boolean }
   | { type: "confirm_status"; id: number; status: ConfirmStatus };
+
+function patchAgent(s: State, id: string, fn: (agent: AgentSession) => AgentSession): State {
+  return { ...s, agents: s.agents.map((agent) => (agent.id === id ? fn(agent) : agent)) };
+}
+
+function agentByMessage(s: State, messageId: number) {
+  return s.agents.find((agent) => agent.messages.some((m) => m.id === messageId));
+}
 
 function bump(s: State, tab: Tab): State["unseen"] {
   return s.tab === tab ? s.unseen : { ...s.unseen, [tab]: (s.unseen[tab] ?? 0) + 1 };
@@ -154,31 +189,65 @@ function reducer(s: State, a: Action): State {
     case "compliance_set":
       return { ...s, compliance: { ...s.compliance, [a.id]: { ...s.compliance[a.id], status: a.status } } };
     case "reset":
-      return { ...initialState(), tab: s.tab, engine: s.engine, ui: s.ui, assistant: s.assistant };
+      return { ...initialState(), tab: s.tab, engine: s.engine, ui: s.ui, agents: s.agents, activeAgentId: s.activeAgentId, liveAgentId: s.liveAgentId };
     case "ui":
       return { ...s, ui: { ...s.ui, ...a.patch } };
+    case "spawn_agent": {
+      const n = s.agents.length + 1;
+      const used = new Set(s.agents.map((agent) => agent.role));
+      const role = WORKSPACE_ROLES.find((item) => !used.has(item)) ?? "Custom";
+      const id = `agent-${seq++}`;
+      const agent: AgentSession = {
+        id,
+        role,
+        title: role === "Custom" ? `Agent ${n}` : role,
+        messages: [],
+        busy: false,
+        createdAt: Date.now(),
+      };
+      return { ...s, agents: [...s.agents, agent], activeAgentId: id };
+    }
+    case "set_active_agent":
+      return s.agents.some((agent) => agent.id === a.id) ? { ...s, activeAgentId: a.id } : s;
+    case "close_agent": {
+      if (s.agents.length <= 1) return s;
+      const agents = s.agents.filter((agent) => agent.id !== a.id);
+      return {
+        ...s,
+        agents,
+        activeAgentId: s.activeAgentId === a.id ? agents[agents.length - 1].id : s.activeAgentId,
+        liveAgentId: s.liveAgentId === a.id ? null : s.liveAgentId,
+      };
+    }
+    case "set_live_agent":
+      return { ...s, liveAgentId: a.id };
     case "assistant_msg":
-      return { ...s, assistant: { ...s.assistant, messages: [...s.assistant.messages, { ...a.msg, id: seq++ } as AssistantMsg] } };
+      return patchAgent(s, a.agentId, (agent) => ({ ...agent, messages: [...agent.messages, { ...a.msg, id: seq++ } as AssistantMsg] }));
     case "live_transcript": {
-      const msgs = s.assistant.messages;
+      const agent = s.agents.find((item) => item.id === a.agentId);
+      if (!agent) return s;
+      const msgs = agent.messages;
       const last = msgs[msgs.length - 1];
       if (last && (last.role === "user" || last.role === "assistant") && last.role === a.role && last.turnKey === a.turnKey) {
         const updated = { ...last, text: `${last.text}${a.delta}` };
-        return { ...s, assistant: { ...s.assistant, messages: [...msgs.slice(0, -1), updated] } };
+        return patchAgent(s, a.agentId, (current) => ({ ...current, messages: [...msgs.slice(0, -1), updated] }));
       }
       const nextMsg: AssistantMsg =
         a.role === "assistant"
           ? { id: seq++, role: "assistant", text: a.delta, engine: "openai-live", turnKey: a.turnKey }
           : { id: seq++, role: "user", text: a.delta, turnKey: a.turnKey };
-      return { ...s, assistant: { ...s.assistant, messages: [...msgs, nextMsg] } };
+      return patchAgent(s, a.agentId, (current) => ({ ...current, messages: [...current.messages, nextMsg] }));
     }
     case "assistant_busy":
-      return { ...s, assistant: { ...s.assistant, busy: a.busy } };
-    case "confirm_status":
-      return {
-        ...s,
-        assistant: { ...s.assistant, messages: s.assistant.messages.map((m) => (m.id === a.id && m.role === "confirm" ? { ...m, status: a.status } : m)) },
-      };
+      return patchAgent(s, a.agentId, (agent) => ({ ...agent, busy: a.busy }));
+    case "confirm_status": {
+      const owner = agentByMessage(s, a.id);
+      if (!owner) return s;
+      return patchAgent(s, owner.id, (agent) => ({
+        ...agent,
+        messages: agent.messages.map((m) => (m.id === a.id && m.role === "confirm" ? { ...m, status: a.status } : m)),
+      }));
+    }
     case "event": {
       const e = a.event;
       switch (e.type) {
@@ -311,7 +380,11 @@ type Ctx = {
   focusAnchor: (anchorId: string) => Promise<boolean>;
   openComplianceTask: (taskId: string) => void;
   /* agent console */
-  askAssistant: (text: string) => Promise<void>;
+  spawnAgent: () => void;
+  setActiveAgent: (id: string) => void;
+  closeAgent: (id: string) => void;
+  setLiveAgent: (id: string | null) => void;
+  askAssistant: (text: string, agentId?: string) => Promise<void>;
   confirmAction: (messageId: number) => Promise<void>;
   cancelAction: (messageId: number) => void;
   /* live voice (gpt-live-1) */
@@ -445,23 +518,24 @@ export function MetaxyProvider({ children }: { children: ReactNode }) {
 
     /* ----------------------------- agent console ----------------------------- */
 
-    const say = (msg: AssistantMsgInput) => dispatch({ type: "assistant_msg", msg });
-    const step = (text: string, tone: "ok" | "warn" = "ok") => say({ role: "step", text, tone });
+    const say = (agentId: string, msg: AssistantMsgInput) => dispatch({ type: "assistant_msg", agentId, msg });
+    const step = (agentId: string, text: string, tone: "ok" | "warn" = "ok") => say(agentId, { role: "step", text, tone });
     const pendingIds = () => new Set(stateRef.current.approvals.filter((a) => a.status === "pending").map((a) => a.id));
+    const liveTarget = () => stateRef.current.liveAgentId ?? stateRef.current.activeAgentId;
 
     /** After a scan or a simulated message drafts new approvals, show each one as a confirm card. Nothing runs without Confirm. */
-    const offerNewApprovals = (before: Set<string>) => {
+    const offerNewApprovals = (agentId: string, before: Set<string>) => {
       const snap = buildSnapshot(stateRef.current);
       const fresh = snap.approvals.filter((a) => !before.has(a.id));
       for (const ap of fresh) {
         const card = confirmFor([{ type: "decide_approval", approvalId: ap.id, decision: "allow" }], snap);
-        if (card) say({ role: "confirm", card, status: "pending" });
+        if (card) say(agentId, { role: "confirm", card, status: "pending" });
       }
       return fresh.length;
     };
 
     /** Run actions one by one so the owner can follow. Ask-first actions only run when `confirmed`. */
-    const execute = async (actions: UiAction[], confirmed: boolean) => {
+    const execute = async (agentId: string, actions: UiAction[], confirmed: boolean) => {
       for (const a of actions) {
         if (isAskFirst(a) && !confirmed) continue;
         const label = describeAction(a, buildSnapshot(stateRef.current));
@@ -469,22 +543,22 @@ export function MetaxyProvider({ children }: { children: ReactNode }) {
         switch (a.type) {
           case "navigate":
             setTab(a.tab);
-            step(label);
+            step(agentId, label);
             break;
           case "open_chat":
             openChat(a.customerId);
-            step(label);
+            step(agentId, label);
             break;
           case "open_compliance_task":
             openComplianceTask(a.taskId);
-            step(label);
+            step(agentId, label);
             break;
           case "focus":
-            if (await focusAnchor(a.anchorId)) step(label);
+            if (await focusAnchor(a.anchorId)) step(agentId, label);
             break;
           case "set_columns":
             setColumns(a);
-            step(label);
+            step(agentId, label);
             break;
           case "prepare_compliance": {
             await prepareCompliance(a.taskId);
@@ -492,14 +566,14 @@ export function MetaxyProvider({ children }: { children: ReactNode }) {
             const st = stateRef.current.compliance[a.taskId];
             const task = complianceTasks.find((t) => t.id === a.taskId);
             if (st?.status === "ready") {
-              step(label);
+              step(agentId, label);
               const parts = [`${taskLabel(buildSnapshot(stateRef.current), a.taskId)} is ready for you.`];
               if (st.prepared?.length) parts.push(`I prepared:\n• ${st.prepared.join("\n• ")}`);
               if (st.missing?.length) parts.push(`Still needed from you: ${st.missing.join(", ")}.`);
               if (task && task.ownerMust !== "—") parts.push(`Only you can: ${task.ownerMust}`);
-              say({ role: "assistant", text: parts.join("\n\n") });
+              say(agentId, { role: "assistant", text: parts.join("\n\n") });
             } else {
-              step(`Couldn't prepare ${task?.label ?? a.taskId}. Check Agent activity`, "warn");
+              step(agentId, `Couldn't prepare ${task?.label ?? a.taskId}. Check Agent activity`, "warn");
             }
             break;
           }
@@ -508,17 +582,17 @@ export function MetaxyProvider({ children }: { children: ReactNode }) {
             const before = pendingIds();
             await (a.type === "check_collisions" ? checkCollisions() : chaseOverdue());
             await settle();
-            const drafted = offerNewApprovals(before);
-            step(drafted ? `${label}: drafted ${drafted} decision${drafted > 1 ? "s" : ""} for you` : `${label}: nothing new to decide`, drafted ? "ok" : "warn");
+            const drafted = offerNewApprovals(agentId, before);
+            step(agentId, drafted ? `${label}: drafted ${drafted} decision${drafted > 1 ? "s" : ""} for you` : `${label}: nothing new to decide`, drafted ? "ok" : "warn");
             break;
           }
           case "simulate_customer": {
             const before = pendingIds();
             openChat(a.customerId);
-            step(label);
+            step(agentId, label);
             await sendCustomerMessage(a.text, a.customerId);
             await settle();
-            if (offerNewApprovals(before)) step("The agent drafted a reply and is holding it for your OK");
+            if (offerNewApprovals(agentId, before)) step(agentId, "The agent drafted a reply and is holding it for your OK");
             break;
           }
           case "run_automations": {
@@ -526,34 +600,36 @@ export function MetaxyProvider({ children }: { children: ReactNode }) {
             await runAutomations();
             await settle();
             const sent = stateRef.current.messages.filter((m) => m.automation).length - before;
-            step(`${label}: ${sent} message${sent === 1 ? "" : "s"} sent`, sent ? "ok" : "warn");
+            step(agentId, `${label}: ${sent} message${sent === 1 ? "" : "s"} sent`, sent ? "ok" : "warn");
             break;
           }
           case "decide_approval": {
             await decide(a.approvalId, a.decision);
             await settle();
             const after = stateRef.current.approvals.find((p) => p.id === a.approvalId)?.status;
-            if (after === (a.decision === "allow" ? "allowed" : "refused")) step(label);
-            else step(`Couldn't record the decision on ${a.approvalId}`, "warn");
+            if (after === (a.decision === "allow" ? "allowed" : "refused")) step(agentId, label);
+            else step(agentId, `Couldn't record the decision on ${a.approvalId}`, "warn");
             break;
           }
           case "send_owner_message":
             openChat(a.customerId);
             sendOwnerMessage(a.text);
-            step(label);
+            step(agentId, label);
             break;
         }
       }
     };
 
-    const askAssistant = async (text: string) => {
+    const askAssistant = async (text: string, agentId?: string) => {
+      const id = agentId ?? stateRef.current.activeAgentId;
+      const agent = stateRef.current.agents.find((item) => item.id === id);
       const msg = text.trim();
-      if (!msg || stateRef.current.assistant.busy) return;
-      const history: HistoryItem[] = stateRef.current.assistant.messages
+      if (!agent || !msg || agent.busy) return;
+      const history: HistoryItem[] = agent.messages
         .flatMap((m) => (m.role === "user" || m.role === "assistant" ? [{ role: m.role, text: m.text }] : []))
         .slice(-10);
-      say({ role: "user", text: msg });
-      dispatch({ type: "assistant_busy", busy: true });
+      say(id, { role: "user", text: msg });
+      dispatch({ type: "assistant_busy", agentId: id, busy: true });
       try {
         const snapshot = buildSnapshot(stateRef.current);
         let res: AssistantResponse;
@@ -565,47 +641,50 @@ export function MetaxyProvider({ children }: { children: ReactNode }) {
           // offline / server down: the router is pure, so run it right here
           res = route(msg, snapshot);
         }
-        say({ role: "assistant", text: res.reply, engine: res.engine });
-        await execute(res.actions ?? [], false);
-        if (res.confirm?.actions.length) say({ role: "confirm", card: res.confirm, status: "pending" });
+        say(id, { role: "assistant", text: res.reply, engine: res.engine });
+        await execute(id, res.actions ?? [], false);
+        if (res.confirm?.actions.length) say(id, { role: "confirm", card: res.confirm, status: "pending" });
       } finally {
-        dispatch({ type: "assistant_busy", busy: false });
+        dispatch({ type: "assistant_busy", agentId: id, busy: false });
       }
     };
 
     const confirmAction = async (messageId: number) => {
-      const m = stateRef.current.assistant.messages.find((x) => x.id === messageId);
-      if (!m || m.role !== "confirm" || m.status !== "pending" || stateRef.current.assistant.busy) return;
+      const owner = agentByMessage(stateRef.current, messageId);
+      const m = owner?.messages.find((x) => x.id === messageId);
+      if (!owner || !m || m.role !== "confirm" || m.status !== "pending" || owner.busy) return;
       dispatch({ type: "confirm_status", id: messageId, status: "running" });
-      dispatch({ type: "assistant_busy", busy: true });
+      dispatch({ type: "assistant_busy", agentId: owner.id, busy: true });
       try {
-        await execute(m.card.actions, true);
+        await execute(owner.id, m.card.actions, true);
       } finally {
         dispatch({ type: "confirm_status", id: messageId, status: "confirmed" });
-        dispatch({ type: "assistant_busy", busy: false });
+        dispatch({ type: "assistant_busy", agentId: owner.id, busy: false });
       }
     };
 
     const cancelAction = (messageId: number) => {
-      const m = stateRef.current.assistant.messages.find((x) => x.id === messageId);
-      if (!m || m.role !== "confirm" || m.status !== "pending") return;
+      const owner = agentByMessage(stateRef.current, messageId);
+      const m = owner?.messages.find((x) => x.id === messageId);
+      if (!owner || !m || m.role !== "confirm" || m.status !== "pending") return;
       dispatch({ type: "confirm_status", id: messageId, status: "cancelled" });
-      step("Cancelled. Nothing was sent or changed", "warn");
+      step(owner.id, "Cancelled. Nothing was sent or changed", "warn");
     };
 
     const getSnapshot = () => buildSnapshot(stateRef.current);
 
     const pushLiveTranscript = (role: "user" | "assistant", delta: string, turnKey: string) => {
       if (!delta) return;
-      dispatch({ type: "live_transcript", role, delta, turnKey });
+      dispatch({ type: "live_transcript", agentId: liveTarget(), role, delta, turnKey });
     };
 
     const pushLiveMessage = (role: "user" | "assistant", text: string) => {
       if (!text.trim()) return;
-      say(role === "assistant" ? { role: "assistant", text, engine: "openai-live" } : { role: "user", text });
+      const agentId = liveTarget();
+      say(agentId, role === "assistant" ? { role: "assistant", text, engine: "openai-live" } : { role: "user", text });
     };
 
-    const pushLiveStep = (text: string, tone: "ok" | "warn" = "ok") => step(text, tone);
+    const pushLiveStep = (text: string, tone: "ok" | "warn" = "ok") => step(liveTarget(), text, tone);
 
     const runLiveTool = async (name: string, args: Record<string, unknown>): Promise<Record<string, unknown>> => {
       const snap = buildSnapshot(stateRef.current);
@@ -619,7 +698,7 @@ export function MetaxyProvider({ children }: { children: ReactNode }) {
       if (isAskFirst(action)) {
         const card = confirmFor([action], snap);
         if (card) {
-          say({ role: "confirm", card, status: "pending" });
+          say(liveTarget(), { role: "confirm", card, status: "pending" });
           return {
             ok: true,
             status: "awaiting_owner_confirmation",
@@ -631,7 +710,7 @@ export function MetaxyProvider({ children }: { children: ReactNode }) {
         }
         return { ok: false, error: "Nothing pending to confirm.", state: snap };
       }
-      await execute([action], false);
+      await execute(liveTarget(), [action], false);
       await settle();
       return {
         ok: true,
@@ -658,6 +737,10 @@ export function MetaxyProvider({ children }: { children: ReactNode }) {
       setColumns,
       focusAnchor,
       openComplianceTask,
+      spawnAgent: () => dispatch({ type: "spawn_agent" }),
+      setActiveAgent: (id: string) => dispatch({ type: "set_active_agent", id }),
+      closeAgent: (id: string) => dispatch({ type: "close_agent", id }),
+      setLiveAgent: (id: string | null) => dispatch({ type: "set_live_agent", id }),
       askAssistant,
       confirmAction,
       cancelAction,

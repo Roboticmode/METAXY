@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import { AgentConsole } from "@/components/agent-console";
 import { Shell } from "@/components/shell";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +10,6 @@ export default async function DashboardPage() {
   return (
     <>
       <Shell userEmail={data.user?.email ?? null} />
-      <AgentConsole />
     </>
   );
 }
