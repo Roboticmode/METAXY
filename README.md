@@ -1,4 +1,4 @@
-# Metexi
+# Metaxy
 
 *Bridging informal hustle and formal business for South African small businesses.*
 
@@ -32,7 +32,20 @@ npm run dev                  # http://localhost:3000
 2. Watch Agent activity, the draft order (payment BLOCKED), and the approval card appear.
 3. Click **Allow once** → agent confirms to the customer → compliance nudge to formalise (CIPC).
 
+## WhatsApp module (owner ↔ customers)
+- **Inbox** of all customer chats — click one to open it in the phone panel. Unread counts, "needs you" and "you're handling" badges.
+- The agent routes every message by **intent**: orders go through the policy pipeline; FAQs (prices, hours, location, banking details) and "is my order ready?" are answered from the brief; complaints and unknown questions are **handed off** to the owner.
+- **Reply as Thandi** in the phone panel to take over a chat — the agent pauses for that chat until you hand it back.
+- **Automations** (toggle each): deposit reminders, day-before delivery reminders, thank-you + review, re-order nudges (opted-in customers only — POPIA), FAQ answers, order intake. **Run today's** fires them against the current orders.
+- **WhatsApp Business setup** checklist (profile, catalogue, templates, opt-in, Cloud API connection).
+
+## Compliance module (business legalities)
+- Checklist grouped by area: identity & tax (SARS, provisional tax, VAT), CIPC registration, business bank account, food-premises certificate (R638) and business licence, POPIA (Information Officer, privacy notice & marketing opt-in), B-BBEE EME affidavit, UIF/COIDA.
+- Each task shows why it matters, steps, documents (checked against the vault), cost, time and the official site.
+- **Prepare with agent** → the agent pre-fills what it can and marks it *ready for you*; the owner submits/pays herself (*I've submitted it* → *Mark approved*). Finished tasks add their certificate to the vault and unlock dependent tasks (e.g. CIPC → bank account).
+- Upcoming legal dates, turnover vs VAT threshold, document vault. Guidance only — not legal or tax advice.
+
 ## Status
-Hero vertical slice working. Opportunities and CRM tabs use fixture data (CRM memory updates live).
+Hero vertical slice, WhatsApp and Compliance modules working (scripted engine; Grok used when `XAI_API_KEY` is set). Opportunities and CRM tabs use fixture data (CRM memory updates live).
 
 > All data in this repo is synthetic. No real customer or business data.

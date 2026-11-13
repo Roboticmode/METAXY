@@ -32,7 +32,7 @@
 
 ## Pre-event setup checklist
 - [ ] Create unified SpaceXSI account (new vs existing user — see brief)
-- [ ] Add teammates to GitHub repo (`Metexi`)
+- [ ] Add teammates to GitHub repo (`Metaxy`)
 - [ ] Clone repo into `~/Desktop/coding/HACKATHONS/METAXY`
 - [ ] Gather Vanguard OS layout files to reuse
 - [ ] Node + package manager installed on all laptops

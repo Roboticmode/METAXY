@@ -3,7 +3,7 @@
 import { Check, CircleAlert, ShieldAlert, Sparkles, X } from "lucide-react";
 import { business, policies } from "@/lib/agent/data";
 import { formatDate, rand } from "@/lib/agent/tools";
-import { useMetexi } from "@/lib/store";
+import { useMetaxy } from "@/lib/store";
 import { Badge, Btn, MonoLabel, Panel, cn } from "@/components/ui";
 import type { Order } from "@/lib/agent/types";
 
@@ -12,11 +12,12 @@ const statusTone: Record<Order["status"], "ok" | "warn" | "block" | "info" | "ne
   awaiting_deposit: "info",
   awaiting_approval: "warn",
   confirmed: "ok",
+  delivered: "neutral",
   declined: "block",
 };
 
 export function OperationsBoard() {
-  const { state, decide, setTab } = useMetexi();
+  const { state, decide, setTab } = useMetaxy();
   const pending = state.approvals.filter((a) => a.status === "pending");
 
   return (
