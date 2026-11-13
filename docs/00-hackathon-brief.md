@@ -1,6 +1,6 @@
 # Hackathon Brief — Grok Bot Johannesburg Hackathon
 
-Source: https://luma.com/spacexai-0jmr?tk=zB235j (+ mentor briefing from "Chef", SpaceXSI)
+Source: https://luma.com/spacexai-0jmr?tk=zB235j (+ mentor briefing from Shaz, SpaceXSI)
 
 ## Logistics
 - **When:** Fri 13 Nov 2026, 08:00–18:00 SAST
@@ -32,11 +32,11 @@ Official emphasis: *a clear problem, a well-briefed agent, a working demonstrati
 
 ## Mentor hints worth acting on
 1. Visual dashboard builds **trust** with non-technical owners — mirror agent actions in UI.
-2. Chef hinted at a tool that **routes multiple coding platforms in one environment** (so Grok Bot can drive Cursor, Antigravity, etc.). He'll "whisper it" — go ask. Treat as a possible edge.
+2. Shaz hinted at a tool that **routes multiple coding platforms in one environment** (so Grok Bot can drive Cursor, Antigravity, etc.). He'll "whisper it" — go ask. Treat as a possible edge.
 3. Persona examples he gave: moonlighting WhatsApp business owner (pet-care / windows), 5-person plumbing crew with paper job cards.
 4. Judges want proof it is a *real, viable* pain — bring evidence (stats, a believable persona, a before/after).
 
-## Open questions for Chef (ask today)
+## Open questions for Shaz (ask today)
 - [ ] Judging rubric + demo format/length?
 - [ ] What's the multi-platform routing tool he hinted at?
 - [ ] Do we get a real WhatsApp sandbox, or simulate? (Assume simulate.)
