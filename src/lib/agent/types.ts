@@ -118,7 +118,7 @@ export type AgentRequest =
   | { kind: "compliance_prepare"; taskId: string; vault: string[] }
   | { kind: "run_automations"; enabled: string[]; projects: Project[]; invoices: Invoice[] };
 
-export type AgentResponse = { engine: "mock" | "grok"; events: AgentEvent[]; note?: string };
+export type AgentResponse = { engine: "mock" | "grok" | "openai"; events: AgentEvent[]; note?: string };
 
 export type Customer = {
   id: string;

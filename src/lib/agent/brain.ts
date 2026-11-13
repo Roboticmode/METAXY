@@ -23,7 +23,7 @@ export type ComposeCtx =
  * so Grok Bot / any external runtime can replace this without touching the dashboard.
  */
 export interface Brain {
-  engine: "mock" | "grok";
+  engine: "mock" | "grok" | "openai";
   understand(text: string): Promise<Understanding>;
   compose(ctx: ComposeCtx): Promise<string>;
 }
@@ -69,25 +69,40 @@ export const mockBrain: Brain = {
   compose: async (ctx) => mockCompose(ctx),
 };
 
-/* ----------------------------- Grok (xAI) engine ----------------------------- */
+/* ------------------------- OpenAI & Grok (xAI) engines ------------------------- */
+
+type ChatProvider = {
+  label: string;
+  url: string;
+  apiKey: string;
+  model: string;
+};
 
 const XAI_URL = "https://api.x.ai/v1/chat/completions";
+const openaiUrl = () => `${(process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/+$/, "")}/chat/completions`;
+const supportsTemperature = (model: string) => !/^(o[134]|gpt-5)/i.test(model);
 
-async function grokChat(messages: { role: string; content: string }[], json: boolean): Promise<string> {
-  const res = await fetch(XAI_URL, {
+function stripJsonFences(raw: string): string {
+  const trimmed = raw.trim();
+  const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  return fenced ? fenced[1] : trimmed;
+}
+
+async function chatCompletion(provider: ChatProvider, messages: { role: string; content: string }[], json: boolean): Promise<string> {
+  const res = await fetch(provider.url, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.XAI_API_KEY}` },
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${provider.apiKey}` },
     body: JSON.stringify({
-      model: process.env.GROK_MODEL || "grok-4",
-      temperature: 0.4,
+      model: provider.model,
+      ...(supportsTemperature(provider.model) ? { temperature: 0.4 } : {}),
       messages,
       ...(json ? { response_format: { type: "json_object" } } : {}),
     }),
     signal: AbortSignal.timeout(20_000),
   });
-  if (!res.ok) throw new Error(`xAI ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  if (!res.ok) throw new Error(`${provider.label} ${res.status}: ${(await res.text()).slice(0, 200)}`);
   const data = await res.json();
-  return data.choices?.[0]?.message?.content ?? "";
+  return String(data.choices?.[0]?.message?.content ?? "");
 }
 
 const UNDERSTAND_SYSTEM = `You extract structured intent from a WhatsApp message sent to ${business.name} (a South African student-freelancer design & web studio).
@@ -100,26 +115,62 @@ Today is Friday 2026-11-13. Return ONLY JSON:
 If the user asks to write, edit, or complete university coursework/assignments/exams, return intent "academic_integrity".
 If an existing client asks for extra deliverables beyond their agreed scope, return intent "scope_change".`;
 
-export const grokBrain: Brain = {
-  engine: "grok",
-  async understand(text) {
-    const raw = await grokChat([{ role: "system", content: UNDERSTAND_SYSTEM }, { role: "user", content: text }], true);
-    const parsed = JSON.parse(raw) as Understanding;
-    if (!parsed.items?.length) parsed.items = mockUnderstand(text).items;
-    if (!parsed.intent) parsed.intent = mockUnderstand(text).intent;
-    return parsed;
-  },
-  async compose(ctx) {
-    const system = `You are Client Desk / Books / Planner for ${business.name} (owner ${business.owner}, ${business.degree} in ${business.area}).
+function makeLlmBrain(engine: "openai" | "grok", getProvider: () => ChatProvider): Brain {
+  return {
+    engine,
+    async understand(text) {
+      const raw = await chatCompletion(
+        getProvider(),
+        [
+          { role: "system", content: UNDERSTAND_SYSTEM },
+          { role: "user", content: text },
+        ],
+        true,
+      );
+      const parsed = JSON.parse(stripJsonFences(raw)) as Understanding;
+      if (!parsed.items?.length) parsed.items = mockUnderstand(text).items;
+      if (!parsed.intent) parsed.intent = mockUnderstand(text).intent;
+      return parsed;
+    },
+    async compose(ctx) {
+      const system = `You are Client Desk / Books / Planner for ${business.name} (owner ${business.owner}, ${business.degree} in ${business.area}).
 Style: crisp, warm, honest, brief (max 4 sentences), South African English, ZAR amounts.
 Studio policies:\n${policies.map((p) => `- ${p.code}: ${p.rule}`).join("\n")}
 Available packages: ${Object.entries(catalog).map(([k, v]) => `${k} ${rand(v.price)}`).join(", ")}.
 Never invent dates, prices, or promises: only use facts from CONTEXT. If CONTEXT.kind is "academic_refusal", firmly refuse coursework help.`;
-    const raw = await grokChat([{ role: "system", content: system }, { role: "user", content: `CONTEXT:\n${JSON.stringify(ctx)}\n\nDraft the WhatsApp message.` }], false);
-    return raw.trim();
-  },
-};
+      const raw = await chatCompletion(
+        getProvider(),
+        [
+          { role: "system", content: system },
+          { role: "user", content: `CONTEXT:\n${JSON.stringify(ctx)}\n\nDraft the WhatsApp message.` },
+        ],
+        false,
+      );
+      return raw.trim();
+    },
+  };
+}
+
+export const openaiBrain: Brain = makeLlmBrain("openai", () => ({
+  label: "OpenAI",
+  url: openaiUrl(),
+  apiKey: process.env.OPENAI_API_KEY ?? "",
+  model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+}));
+
+export const grokBrain: Brain = makeLlmBrain("grok", () => ({
+  label: "xAI",
+  url: XAI_URL,
+  apiKey: process.env.XAI_API_KEY ?? "",
+  model: process.env.GROK_MODEL || "grok-4",
+}));
 
 export function getBrain(): Brain {
-  return process.env.XAI_API_KEY ? grokBrain : mockBrain;
+  const pref = process.env.LLM_PROVIDER?.trim().toLowerCase();
+  if (pref === "mock" || pref === "scripted") return mockBrain;
+  if (pref === "grok" && process.env.XAI_API_KEY) return grokBrain;
+  if (pref === "openai" && process.env.OPENAI_API_KEY) return openaiBrain;
+  if (process.env.OPENAI_API_KEY) return openaiBrain;
+  if (process.env.XAI_API_KEY) return grokBrain;
+  return mockBrain;
 }
