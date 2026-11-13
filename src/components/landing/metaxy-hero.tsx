@@ -2,6 +2,7 @@
 
 import ElsewhereHero from "@/components/ui/elsewhere-hero";
 import { ctaLabel, useLandingSession } from "./auth-session";
+import { HERO_FADE_TO, HERO_HEADLINE, HERO_LINKS, HERO_SECONDARY, HERO_SUBLINE } from "./hero-copy";
 import { DAY_POSTER, DAY_SRC, NIGHT_POSTER, NIGHT_SRC } from "./hero-media";
 
 /**
@@ -17,21 +18,15 @@ export function MetaxyHero() {
       nightSrc={NIGHT_SRC}
       dayPoster={DAY_POSTER}
       nightPoster={NIGHT_POSTER}
-      fadeTo="var(--landing-ink)"
+      fadeTo={HERO_FADE_TO}
       objectPosition="42% 50%"
       brand="METAXY"
-      links={[
-        { label: "How it works", href: "#how" },
-        { label: "Modules", href: "#modules" },
-        { label: "Who it's for", href: "#who" },
-        { label: "Trust", href: "#trust" },
-        ...(email ? [] : [{ label: "Sign in", href: "#signin" }]),
-      ]}
-      navCta={email ? { label: "Open workspace", href: "/dashboard" } : { label: "Open dashboard", href: "/dashboard" }}
-      headline="From hustle to formal business."
-      subline="An AI agent that answers your clients, chases payments and walks you through CIPC and SARS, with a command centre where you see and approve everything it does."
+      links={[...HERO_LINKS, ...(email ? [] : [{ label: "Sign in", href: "#signin" }])]}
+      navCta={{ label: ctaLabel(email), href: "/dashboard" }}
+      headline={HERO_HEADLINE}
+      subline={HERO_SUBLINE}
       primaryCta={{ label: ctaLabel(email), href: "/dashboard" }}
-      secondaryCta={{ label: "How it works", href: "#how" }}
+      secondaryCta={HERO_SECONDARY}
       sound={false}
       cycleCaption={{ day: "By day: lectures, the 9-to-5, the day job", night: "After hours: the business, and METAXY keeps it running" }}
       style={{ fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif" }}
