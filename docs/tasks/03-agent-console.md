@@ -15,6 +15,7 @@ The owner can **talk to the agent directly**: ask questions, give instructions, 
   - "Send today's reminders" → ask-first: shows exactly what will be sent and runs `runAutomations()` only after the owner says yes.
   - "Approve Sipho's pay-on-delivery" → ask-first: confirmation card first, then `decide(...)`.
 - Every UI action the agent takes appears as a small step in the console ("→ Opened Compliance › CIPC"), the same way the Agent activity panel shows tool calls. **Visible trust** applies to the console too.
+- **Agent state orb (`thinking-orbs`):** Replace static pulsing dots during `busy` / tool execution with [`ThinkingOrb`](../../src/components/ui/thinking-orbs.tsx) (`size={20}` inline, `size={64}` for hero/avatar pills) mapped to what the agent is doing (`working`, `searching`, `solving`, `listening`, `composing`, `shaping`). See [component-integrations.md](../design/component-integrations.md) for the exact state map and props.
 
 ## Architecture
 ```

@@ -27,12 +27,13 @@ Compliance & Formalisation · Operations · Opportunity Discovery · CRM & Reten
 ### Design (`docs/design/`)
 - [Design prompt](docs/design/03-design-prompt.md) — master product & experience brief
 - [Design prompt template](docs/design/design-prompt-template.md) — reusable Concept-Led Product & Experience Brief template explaining *why* and *what* agents must keep note of
+- [Component integrations](docs/design/component-integrations.md) — `ThinkingOrb` agent state spec (`thinking-orbs`), `WovenLightHero` (Three.js), and `AuthGrainHero` (`@paper-design/shaders-react`) + shadcn/Tailwind/TS structure guide
 
 ## Run it
 ```bash
 npm install
 cp .env.example .env.local   # optional: add XAI_API_KEY to use real Grok; empty = scripted engine
-npm run dev                  # http://localhost:3000
+npm run dev                  # http://localhost:3000 (/ landing, /dashboard workspace, /heroes UI testbench)
 ```
 
 ## How it works
