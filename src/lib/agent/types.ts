@@ -55,17 +55,31 @@ export type Invoice = {
   status: InvoiceStatus;
 };
 
+export type SchoolKind = "lecture" | "assignment" | "test" | "capstone" | "exam" | "study";
+
 export type SchoolItem = {
   id: string;
   module: string;
   title: string;
-  kind: "lecture" | "assignment" | "test" | "capstone" | "exam";
+  kind: SchoolKind;
   date: string;
   hours: number;
   fixed: boolean;
 };
 
-export type ApprovalKind = "reply_date" | "collision_fix" | "invoice_reminder" | "scope_quote" | "exam_pause" | "payment_exception";
+export type ApprovalKind =
+  | "reply_date"
+  | "collision_fix"
+  | "invoice_reminder"
+  | "scope_quote"
+  | "exam_pause"
+  | "payment_exception"
+  /** Client Desk: send a new project quote + issue the 50% deposit invoice */
+  | "quote_send"
+  /** Books: thank a client after a payment was logged */
+  | "payment_thanks"
+  /** Planner: add or move a real calendar event (school deadline, study blocks) */
+  | "calendar_change";
 
 export type Approval = {
   id: string;
@@ -78,6 +92,14 @@ export type Approval = {
   draftMessage?: string;
   policy: string;
   status: "pending" | "allowed" | "refused";
+  /** exactly what approving changes, one line each (shown on the confirm card) */
+  effects?: string[];
+  /** what holding changes (default: nothing is sent) */
+  refuseEffects?: string[];
+  /** events applied when the owner approves (after the draft message is sent) */
+  onAllow?: AgentEvent[];
+  /** events applied when the owner holds */
+  onRefuse?: AgentEvent[];
 };
 
 export type ComplianceNudge = {
@@ -107,16 +129,19 @@ export type AgentEvent =
   | { type: "memory"; customerId: string; note: string }
   | { type: "compliance"; nudge: ComplianceNudge }
   | { type: "compliance_task"; id: string; status: ComplianceStatus; prepared?: string[]; missing?: string[] }
-  | { type: "handoff"; customerId: string; reason: string };
+  | { type: "handoff"; customerId: string; reason: string }
+  | { type: "customer_add"; customer: Customer }
+  | { type: "invoice_add"; invoice: Invoice }
+  | { type: "school_add"; item: SchoolItem };
 
 export type AgentRequest =
-  | { kind: "customer_message"; text: string; customerId: string; projects?: Project[]; enabled?: string[]; examMode?: boolean }
+  | { kind: "customer_message"; text: string; customerId: string; projects?: Project[]; enabled?: string[]; examMode?: boolean; customers?: Customer[] }
   | { kind: "approval"; decision: "allow" | "refuse"; approval: Approval; project?: Project }
-  | { kind: "check_collisions"; projects: Project[]; school: SchoolItem[] }
-  | { kind: "chase_overdue"; invoices: Invoice[] }
-  | { kind: "toggle_exam_mode"; active: boolean; projects: Project[] }
+  | { kind: "check_collisions"; projects: Project[]; school: SchoolItem[]; customers?: Customer[] }
+  | { kind: "chase_overdue"; invoices: Invoice[]; customers?: Customer[] }
+  | { kind: "toggle_exam_mode"; active: boolean; projects: Project[]; customers?: Customer[] }
   | { kind: "compliance_prepare"; taskId: string; vault: string[] }
-  | { kind: "run_automations"; enabled: string[]; projects: Project[]; invoices: Invoice[] };
+  | { kind: "run_automations"; enabled: string[]; projects: Project[]; invoices: Invoice[]; customers?: Customer[] };
 
 export type AgentResponse = { engine: "mock" | "grok" | "openai"; events: AgentEvent[]; note?: string };
 

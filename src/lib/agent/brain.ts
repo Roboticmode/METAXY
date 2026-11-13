@@ -47,7 +47,7 @@ function mockCompose(ctx: ComposeCtx): string {
     case "scope_quote":
       return `Hi ${name}! Glad you're loving the logo direction ✨ Just checking against our agreed brief (${ctx.project.deliverables.join(", ")}), ${ctx.addOnText} sits outside the original scope. I can add it as an add-on package for ${rand(ctx.addOnTotal)} (50% deposit ${rand(Math.round(ctx.addOnTotal * 0.5))}) — want me to lock that in?`;
     case "collision_extension":
-      return `Hi ${name}, quick heads-up on ${ctx.project.title} — I have a fixed university ${ctx.school.title} on ${formatDate(ctx.school.date)}, and I don't want to rush your build. Can we deliver on ${formatDate(ctx.newDate)} (+1 day) so it gets my full focus? Let me know if that works!`;
+      return `Hi ${name}, quick heads-up on ${ctx.project.title} — I have a fixed university ${ctx.school.title} on ${formatDate(ctx.school.date)}, and I don't want to rush your build. Can we deliver on ${formatDate(ctx.newDate)} (the next working day) so it gets my full focus? Let me know if that works!`;
     case "invoice_reminder":
       return `Hi ${name}, hope ${ctx.customer.business} is having a good week! Friendly nudge that ${ctx.invoice.id} (${rand(ctx.invoice.amount)}) is ${ctx.invoice.daysOverdue} days past due. Could you send through proof of payment when you get a moment? EFT: FNB Acc 6291 044 8210 (ref ${ctx.invoice.id}). 🙏`;
     case "exam_notice":
@@ -58,7 +58,7 @@ function mockCompose(ctx: ComposeCtx): string {
       if (capacity.available) {
         return `${greet} ${capacity.label} works for ${project.title} (${rand(project.total)}). A 50% deposit (${rand(project.deposit)}) by EFT locks in the slot — shall I send banking details?`;
       }
-      return `${greet} I checked Naledi's studio & university calendar — next week has a database test on Thursday so ${capacity.label} isn't realistic without rushing. We can deliver cleanly on ${formatDate(capacity.proposedDate)} for ${rand(project.total)} (50% deposit ${rand(project.deposit)} to book). Does Monday work?`;
+      return `${greet} I checked Naledi's studio & university calendar — next week has a database test on Thursday so ${capacity.label} isn't realistic without rushing. We can deliver cleanly on ${formatDate(capacity.proposedDate)} for ${rand(project.total)} (50% deposit ${rand(project.deposit)} to book). Does that work?`;
     }
   }
 }

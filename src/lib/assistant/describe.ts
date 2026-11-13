@@ -15,7 +15,10 @@ export const TAB_LABEL: Record<Tab, string> = {
 /** Stable panel ids (contract #4 in docs/tasks/README.md). Missing ids are skipped quietly. */
 export const ANCHORS: Record<string, string> = {
   "ops-approvals": "Approvals",
+  "ops-calendar": "Shared calendar",
   "ops-orders": "Projects & invoices",
+  "ops-invoices": "Invoice ledger",
+  "ops-triggers": "Agent triggers & Exam Mode",
   "ops-activity": "Agent activity",
   "ops-policies": "Agent brief",
   "wa-inbox": "WhatsApp inbox",
@@ -76,6 +79,20 @@ export function describeAction(a: UiAction, snap: Snapshot): string {
     }
     case "send_owner_message":
       return `Sent your message to ${customerName(snap, a.customerId)}`;
+    case "add_client":
+      return `Client Desk added ${a.name} (${a.business}) to your CRM`;
+    case "create_project":
+      return `Client Desk drafted a project for ${customerName(snap, a.customerId)}`;
+    case "log_payment":
+      return `Books logged payment on ${a.invoiceId}`;
+    case "schedule_school_item":
+      return `Planner drafted a calendar change: ${a.title} on ${formatDate(a.date)}`;
+    case "plan_study_blocks":
+      return "Planner proposed study blocks around client work";
+    case "capacity_plan":
+      return `Planner worked out the week of ${formatDate(a.weekStart)}`;
+    case "set_exam_mode":
+      return `Exam Mode turned ${a.active ? "on" : "off"}`;
   }
 }
 
@@ -116,13 +133,15 @@ function decisionEffects(snap: Snapshot, approvalId: string, decision: "allow" |
   const who = ap.customerId ? firstName(customerName(snap, ap.customerId)) : "the client";
   const project = snap.projects.find((p) => p.id === ap.targetId);
   if (decision === "refuse") {
-    const out = [`Nothing is sent to ${who}`];
+    const out = [ap.customerId ? `Nothing is sent to ${who}` : "Nothing changes on your calendar"];
+    if (ap.refuseEffects) return [...out, ...ap.refuseEffects];
     if (ap.kind === "reply_date" && ap.targetId !== "exam") out.push(`${ap.targetId} is marked declined`);
     return out;
   }
   const out: string[] = [];
   if (ap.draftMessage && ap.customerId) out.push(`Sends ${who} this WhatsApp message: “${ap.draftMessage}”`);
   else out.push("No message is sent");
+  if (ap.effects) return [...out, ...ap.effects];
   switch (ap.kind) {
     case "reply_date":
       if (ap.targetId !== "exam") out.push(`${ap.targetId} moves to awaiting a 50% deposit, and a provisional studio block is reserved`);

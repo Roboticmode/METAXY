@@ -1,6 +1,7 @@
 import { business, catalog, policies } from "@/lib/agent/data";
+import { NEXT_MONDAY, TOMORROW } from "@/lib/agent/planner";
 import { rand } from "@/lib/agent/tools";
-import type { Tab } from "@/lib/agent/types";
+import type { SchoolKind, Tab } from "@/lib/agent/types";
 import { ANCHORS, confirmFor, describeAction } from "./describe";
 import type { AssistantResponse, HistoryItem, Snapshot, UiAction } from "./types";
 
@@ -14,6 +15,9 @@ const XAI_URL = "https://api.x.ai/v1/chat/completions";
 const openaiUrl = () => `${(process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/+$/, "")}/chat/completions`;
 const supportsTemperature = (model: string) => !/^(o[134]|gpt-5)/i.test(model);
 const TABS: Tab[] = ["operations", "whatsapp", "compliance", "opportunities", "crm"];
+const PACKAGES = Object.keys(catalog);
+const SCHOOL_KINDS: SchoolKind[] = ["lecture", "assignment", "test", "capstone", "exam", "study"];
+const ISO = { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$", description: "ISO date yyyy-mm-dd" };
 
 const fn = (name: string, description: string, properties: Record<string, unknown> = {}, required: string[] = []) => ({
   type: "function",
@@ -43,13 +47,60 @@ const TOOLS = [
     { customerId: { type: "string" }, text: { type: "string" } },
     ["customerId", "text"],
   ),
+  fn(
+    "add_client",
+    "Client Desk: add a NEW client / lead to the CRM (internal, runs alone). If packages are given it also drafts the project and quote; the quote is held for approval.",
+    {
+      name: { type: "string", description: "person's full name as the owner gave it" },
+      business: { type: "string" },
+      phone: { type: "string" },
+      packages: { type: "array", items: { type: "string", enum: PACKAGES } },
+      dueDate: ISO,
+    },
+    ["name", "business"],
+  ),
+  fn(
+    "create_project",
+    "Client Desk + Planner + Books: draft a project for an EXISTING client with catalogue deliverables, price and a 50% deposit; Planner picks an honest delivery date. The quote and deposit invoice are held for approval.",
+    { customerId: { type: "string" }, packages: { type: "array", items: { type: "string", enum: PACKAGES }, minItems: 1 }, dueDate: ISO, title: { type: "string" } },
+    ["customerId", "packages"],
+  ),
+  fn(
+    "log_payment",
+    "Books: record that a client paid an invoice from STATE.invoices (the owner says it came in). Marks it paid, adds a CRM reliability note and drafts a thank-you held for approval. Never moves money.",
+    { invoiceId: { type: "string" } },
+    ["invoiceId"],
+  ),
+  fn(
+    "schedule_school_item",
+    "Planner: capture a new university deadline, or a moved one (moveId = id from STATE.school). Drafts the calendar change for approval; collisions are re-checked after.",
+    {
+      moveId: { type: "string" },
+      module: { type: "string", description: "e.g. IS302 Databases" },
+      title: { type: "string" },
+      kind: { type: "string", enum: SCHOOL_KINDS },
+      date: ISO,
+      hours: { type: "number", minimum: 1, maximum: 12 },
+    },
+    ["module", "title", "kind", "date", "hours"],
+  ),
+  fn(
+    "plan_study_blocks",
+    "Planner: propose study blocks before a test/exam (targetId from STATE.school, or omit for the next one), only where client work leaves room. Adding them waits for approval.",
+    { targetId: { type: "string" } },
+  ),
+  fn("capacity_plan", `Planner: one-page week (free vs committed hours, deliveries, collision risks). weekStart is the first day; "next week" is ${NEXT_MONDAY}.`, { weekStart: ISO }, ["weekStart"]),
+  fn("set_exam_mode", "Planner: switch Exam Mode on or off (pauses new intake until 5 Dec). When on, it drafts a pause notice per active client, held for approval.", { active: { type: "boolean" } }, ["active"]),
 ];
 
 const SYSTEM = (snap: Snapshot) => `You are METAXY, the owner's assistant inside the command centre of ${business.name}, run by ${business.owner} (${business.degree}) around her studies. Today is Friday 13 November 2026.
-You talk to the OWNER, not to clients. You can move around the dashboard with tools: switch modules, open chats and compliance tasks, highlight panels, prepare compliance packs, and run the Planner (deadline clashes) and Books (overdue invoices) scans, which only draft decisions.
+You talk to the OWNER, not to clients. You can move around the dashboard with tools: switch modules, open chats and compliance tasks, highlight panels, prepare compliance packs, and run the Planner (deadline clashes) and Books (overdue invoices) scans, which only draft decisions. You can also capture data the owner gives you: new clients and quotes (Client Desk), payments received (Books), school deadlines, study blocks, weekly capacity and Exam Mode (Planner).
 Rules (agents prepare, the owner decides):
 - Do alone: navigate, open, highlight, summarise, explain, prepare, run scans that draft.
 - Ask first (run_automations, decide_approval, send_owner_message): call the tool; the owner sees a confirmation card and must click Confirm. Never say these already happened; say they are ready for the owner to confirm.
+- Data capture (add_client, create_project, log_payment, schedule_school_item, plan_study_blocks, capacity_plan, set_exam_mode) runs alone because it only changes internal records or drafts. Anything external or binding it produces (quote + deposit invoice, thank-you, calendar change, exam notices) is held as an approval for the owner. Say what you drafted and that it waits for their OK.
+- Only use catalogue packages and prices. If a client, invoice, package, module or date is missing or ambiguous, ask one short question instead of guessing.
+- "Paid" means the owner received money: log_payment. Never move money, refund, or pay anyone.
 - Never: write, edit or submit university coursework (assignments, tests, capstone, exams), submit filings, move money, invent prices/dates/policies, share one client's details with another, write text for a client that the owner didn't dictate.
 - Two clients are both called Kagiso (Mokoena of Kasi Brew Coffee, Molefe of Molefe Logistics). If the owner just says "Kagiso", ask which one.
 - If you can't do something with the tools, say "I can't do that yet" plainly.
@@ -100,8 +151,58 @@ export function validate(name: string, args: Record<string, unknown>, snap: Snap
         : null;
     case "send_owner_message":
       return customer(str("customerId")) && str("text").trim() ? { type: "send_owner_message", customerId: str("customerId"), text: str("text").trim() } : null;
+    case "add_client": {
+      const name = str("name").trim();
+      const biz = str("business").trim();
+      if (!name || !biz || snap.customers.some((c) => c.name.toLowerCase() === name.toLowerCase() || c.business.toLowerCase() === biz.toLowerCase())) return null;
+      const pk = packages(args.packages);
+      const due = date(str("dueDate"));
+      return { type: "add_client", name, business: biz, ...(str("phone").trim() ? { phone: str("phone").trim() } : {}), ...(pk.length ? { packages: pk } : {}), ...(due ? { dueDate: due } : {}) };
+    }
+    case "create_project": {
+      const pk = packages(args.packages);
+      const due = date(str("dueDate"));
+      return customer(str("customerId")) && pk.length
+        ? { type: "create_project", customerId: str("customerId"), packages: pk, ...(due ? { dueDate: due } : {}), ...(str("title").trim() ? { title: str("title").trim().slice(0, 60) } : {}) }
+        : null;
+    }
+    case "log_payment": {
+      const inv = snap.invoices.find((i) => i.id === str("invoiceId"));
+      return inv && inv.status !== "paid" ? { type: "log_payment", invoiceId: inv.id } : null;
+    }
+    case "schedule_school_item": {
+      const d = date(str("date"));
+      const kind = str("kind") as SchoolKind;
+      const hours = typeof args.hours === "number" ? Math.min(12, Math.max(1, Math.round(args.hours))) : 0;
+      const move = str("moveId") ? (snap.school ?? []).find((s) => s.id === str("moveId")) : undefined;
+      if (!d || (str("moveId") && !move)) return null;
+      if (move) return { type: "schedule_school_item", moveId: move.id, module: move.module, title: move.title, kind: move.kind, date: d, hours: move.hours };
+      return SCHOOL_KINDS.includes(kind) && str("module").trim() && str("title").trim() && hours
+        ? { type: "schedule_school_item", module: str("module").trim(), title: str("title").trim().slice(0, 60), kind, date: d, hours }
+        : null;
+    }
+    case "plan_study_blocks": {
+      const id = str("targetId");
+      if (!id) return { type: "plan_study_blocks" };
+      return (snap.school ?? []).some((s) => s.id === id) ? { type: "plan_study_blocks", targetId: id } : null;
+    }
+    case "capacity_plan":
+      return { type: "capacity_plan", weekStart: date(str("weekStart"), true) ?? NEXT_MONDAY };
+    case "set_exam_mode":
+      return typeof args.active === "boolean" ? { type: "set_exam_mode", active: args.active } : null;
   }
   return null;
+}
+
+/** Only real catalogue packages. */
+function packages(v: unknown): string[] {
+  return Array.isArray(v) ? [...new Set(v.filter((p): p is string => typeof p === "string" && PACKAGES.includes(p)))] : [];
+}
+
+/** A valid ISO date from tomorrow on (or today, for a capacity week). */
+function date(s: string, allowToday = false): string | undefined {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s) || Number.isNaN(Date.parse(s))) return undefined;
+  return s >= (allowToday ? "2026-11-13" : TOMORROW) ? s : undefined;
 }
 
 type ProviderConfig = {
