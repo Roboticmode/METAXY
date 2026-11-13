@@ -6,19 +6,19 @@ import { Badge, Btn, MonoLabel, Panel } from "@/components/ui";
 
 export function OpportunitiesBoard() {
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto p-4">
-      <Panel title="Opportunity radar · within 15 km of Johannesburg" code="OPP-01" right={<Badge tone="info">fixture data</Badge>}>
+    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 pb-24 md:p-4 md:pb-24">
+      <Panel id="opp-radar" title="Opportunity radar · within 15 km of Johannesburg" code="OPP-01" right={<Badge tone="info">fixture data</Badge>}>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
           {leads.map((l) => (
             <div key={l.name} className="rounded border border-border p-3">
               <div className="flex items-start justify-between gap-2">
-                <div>
+                <div className="min-w-0">
                   <div className="text-xs font-bold">{l.name}</div>
                   <div className="text-[11px] text-muted-foreground">{l.type}</div>
                 </div>
                 <Badge tone={l.fit >= 85 ? "ok" : "neutral"}>{l.fit}% fit</Badge>
               </div>
-              <div className="mt-2 flex items-center justify-between">
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                 <MonoLabel className="text-muted-foreground">
                   {l.area} · {l.km} km
                 </MonoLabel>
@@ -36,13 +36,13 @@ export function OpportunitiesBoard() {
 export function CrmBoard() {
   const { state } = useMetaxy();
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto p-4">
-      <Panel title="Client memory & disambiguation" code="CRM-01" right={<Badge tone="info">{state.customers.length} clients</Badge>}>
+    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 pb-24 md:p-4 md:pb-24">
+      <Panel id="crm-memory" title="Client memory & disambiguation" code="CRM-01" right={<Badge tone="info">{state.customers.length} clients</Badge>}>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {[...state.customers].reverse().map((c) => (
             <div key={c.id} className="rounded border border-border p-3">
-              <div className="flex items-center justify-between gap-2">
-                <div>
+              <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                <div className="min-w-0">
                   <div className="text-xs font-bold">{c.name}</div>
                   <MonoLabel className="text-muted-foreground">{c.business}</MonoLabel>
                 </div>

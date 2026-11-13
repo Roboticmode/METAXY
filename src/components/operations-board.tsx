@@ -30,10 +30,10 @@ export function OperationsBoard() {
   const overdueCount = state.invoices.filter((i) => i.status === "overdue").length;
 
   return (
-    <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto p-4 xl:grid-cols-5">
-      <div className="space-y-4 xl:col-span-3">
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded border border-border bg-secondary/40 px-3 py-2">
-          <div className="flex items-center gap-2">
+    <div className="grid min-h-0 flex-1 grid-cols-1 content-start gap-3 overflow-y-auto overscroll-contain p-3 pb-24 md:gap-4 md:p-4 md:pb-24 xl:grid-cols-5">
+      <div className="min-w-0 space-y-3 md:space-y-4 xl:col-span-3">
+        <div id="ops-triggers" className="flex scroll-mt-4 flex-wrap items-center justify-between gap-2 rounded border border-border bg-secondary/40 px-3 py-2">
+          <div className="flex flex-wrap items-center gap-2">
             <MonoLabel className="text-muted-foreground">Agent triggers</MonoLabel>
             {collisions.length ? <Badge tone="block">{collisions.length} calendar collision</Badge> : <Badge tone="ok">Calendar clear</Badge>}
             {overdueCount ? <Badge tone="warn">{overdueCount} overdue</Badge> : null}
@@ -52,14 +52,14 @@ export function OperationsBoard() {
         </div>
 
         {state.nudges.length ? (
-          <div className="rounded border border-accent/40 bg-accent/10 p-3">
-            <div className="flex items-center gap-2">
+          <div id="ops-nudge" className="scroll-mt-4 rounded border border-accent/40 bg-accent/10 p-3">
+            <div className="flex flex-wrap items-center gap-2">
               <Sparkles className="size-4 text-accent" />
               <h3 className="text-xs font-bold uppercase">{state.nudges[0].title}</h3>
               <Badge tone="ok">Compliance</Badge>
             </div>
             <p className="mt-1 text-xs leading-relaxed">{state.nudges[0].detail}</p>
-            <div className="mt-2 flex items-center gap-3">
+            <div className="mt-2 flex flex-wrap items-center gap-3">
               <Btn variant="accent" onClick={() => setTab("compliance")}>
                 Open checklist
               </Btn>
@@ -69,6 +69,7 @@ export function OperationsBoard() {
         ) : null}
 
         <Panel
+          id="ops-approvals"
           title="Approval queue"
           code="OPS-01"
           right={pending.length ? <Badge tone="warn">{pending.length} waiting</Badge> : <Badge>clear</Badge>}
@@ -83,9 +84,9 @@ export function OperationsBoard() {
               {state.approvals.map((a) => (
                 <div key={a.id} className={cn("rounded border p-3", a.status === "pending" ? "border-[var(--warning)]/50 bg-[var(--warning)]/5" : "border-border bg-secondary/40")}>
                   <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-start gap-2">
+                    <div className="flex min-w-0 items-start gap-2">
                       <ShieldAlert className="mt-0.5 size-4 shrink-0 text-[var(--warning)]" />
-                      <div>
+                      <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-1.5">
                           <span className="text-xs font-bold">{a.title}</span>
                           <Badge tone="info">{a.agent}</Badge>
@@ -101,9 +102,9 @@ export function OperationsBoard() {
                       <span>&ldquo;{a.draftMessage}&rdquo;</span>
                     </div>
                   ) : null}
-                  <div className="mt-2 font-mono text-[10px] text-muted-foreground">{a.policy}</div>
+                  <div className="mt-2 font-mono text-[10px] break-words text-muted-foreground">{a.policy}</div>
                   {a.status === "pending" ? (
-                    <div className="mt-3 flex gap-2">
+                    <div className="mt-3 flex flex-wrap gap-2">
                       <Btn variant="accent" disabled={state.busy} onClick={() => void decide(a.id, "allow")}>
                         <Check className="size-3" /> Approve &amp; send
                       </Btn>
@@ -119,6 +120,7 @@ export function OperationsBoard() {
         </Panel>
 
         <Panel
+          id="ops-calendar"
           title="Shared commitment & university calendar"
           code="OPS-00"
           right={<Badge tone={collisions.length ? "block" : "ok"}>{collisions.length ? `${collisions.length} conflict` : "in sync"}</Badge>}
@@ -146,17 +148,17 @@ export function OperationsBoard() {
           </div>
         </Panel>
 
-        <Panel title="Projects, scope & invoices" code="OPS-02">
+        <Panel id="ops-orders" title="Projects, scope & invoices" code="OPS-02">
           <div className="space-y-3">
             <div className="space-y-2">
               {state.projects.map((p) => (
                 <div key={p.id} className="rounded border border-border p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
                       <span className="font-mono text-xs font-bold">{p.id}</span>
-                      <span className="text-xs font-semibold">{p.customerName}</span>
+                      <span className="min-w-0 truncate text-xs font-semibold">{p.customerName}</span>
                     </div>
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       {p.scopeFlag ? <Badge tone="warn">{p.scopeFlag}</Badge> : null}
                       <Badge tone={projectTone[p.status]}>{p.status.replace("_", " ")}</Badge>
                     </div>
@@ -180,7 +182,7 @@ export function OperationsBoard() {
                     </div>
                     <div>
                       <MonoLabel className="text-muted-foreground">Payment</MonoLabel>
-                      <div className={cn("text-xs font-semibold", p.payment.includes("OVERDUE") ? "text-destructive" : "")}>{p.payment}</div>
+                      <div className={cn("text-xs font-semibold break-words", p.payment.includes("OVERDUE") ? "text-destructive" : "")}>{p.payment}</div>
                     </div>
                   </div>
                 </div>
@@ -189,10 +191,10 @@ export function OperationsBoard() {
 
             <div className="border-t border-border pt-3">
               <MonoLabel className="mb-2 block text-muted-foreground">Invoice ledger (Books)</MonoLabel>
-              <div className="divide-y divide-border rounded border border-border">
+              <div id="ops-invoices" className="scroll-mt-4 divide-y divide-border rounded border border-border">
                 {state.invoices.map((inv) => (
-                  <div key={inv.id} className="flex items-center justify-between gap-2 px-3 py-2 text-xs">
-                    <div className="min-w-0">
+                  <div key={inv.id} className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-3 py-2 text-xs">
+                    <div className="min-w-0 break-words">
                       <span className="font-mono font-bold">{inv.id}</span> · <span className="text-muted-foreground">{inv.customerName}</span>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
@@ -207,8 +209,8 @@ export function OperationsBoard() {
         </Panel>
       </div>
 
-      <div className="space-y-4 xl:col-span-2">
-        <Panel title="Agent activity" code="AGENT" right={state.busy ? <Badge tone="info">working</Badge> : <Badge>idle</Badge>}>
+      <div className="min-w-0 space-y-3 md:space-y-4 xl:col-span-2">
+        <Panel id="ops-activity" title="Agent activity" code="AGENT" right={state.busy ? <Badge tone="info">working</Badge> : <Badge>idle</Badge>}>
           {state.trace.length === 0 ? (
             <p className="text-xs text-muted-foreground">Every tool call by Client Desk, Books, and Planner shows up here so you can verify it.</p>
           ) : (
@@ -232,11 +234,11 @@ export function OperationsBoard() {
           )}
         </Panel>
 
-        <Panel title={`Agent brief · ${business.name}`} code="POLICY">
+        <Panel id="ops-policies" title={`Agent brief · ${business.name}`} code="POLICY">
           <ul className="space-y-1.5">
             {policies.map((p) => (
               <li key={p.code} className="flex gap-2 text-[11px] leading-snug">
-                <MonoLabel className="mt-0.5 text-accent">{p.code}</MonoLabel>
+                <MonoLabel className="mt-0.5 shrink-0 whitespace-nowrap text-accent">{p.code}</MonoLabel>
                 <span>{p.rule}</span>
               </li>
             ))}
