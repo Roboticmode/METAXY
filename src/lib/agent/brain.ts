@@ -11,7 +11,11 @@ export type ComposeCtx =
       policy: { blocked: boolean; deposit: number; returning: boolean };
       order: Order;
     }
-  | { kind: "exception_allowed" | "exception_refused"; customer: Customer; order: Order };
+  | { kind: "exception_allowed" | "exception_refused"; customer: Customer; order: Order }
+  /** answer a repetitive question using only the given facts (FAQ, banking details, order status) */
+  | { kind: "info"; customer: Customer; understanding: Understanding; topic: string; facts: string }
+  /** the agent can't / mustn't handle this — tell the customer the owner will reply */
+  | { kind: "handoff"; customer: Customer; understanding: Understanding; reason: string };
 
 /**
  * Swappable agent "brain". Everything the UI sees comes from AgentEvents emitted by the pipeline,
@@ -27,6 +31,16 @@ const first = (name: string) => name.split(" ")[0];
 
 function mockCompose(ctx: ComposeCtx): string {
   const name = first(ctx.customer.name);
+  if (ctx.kind === "info") {
+    const hello = ctx.understanding.greeting ? `Hi ${name}! ` : `Hi ${name}, thanks for your message. `;
+    return `${hello}${ctx.facts}`;
+  }
+  if (ctx.kind === "handoff") {
+    if (ctx.understanding.emotion === "frustrated") {
+      return `${name}, I'm really sorry to hear that — that's not the experience we want for you. I've passed this straight to Thandi and she'll personally reply to you shortly. 🙏`;
+    }
+    return `Thanks ${name}! That's a good question for Thandi herself — I've passed it on and she'll reply as soon as she can.`;
+  }
   if (ctx.kind !== "order_reply") {
     if (ctx.kind === "exception_allowed") {
       return `Good news ${name} — Thandi has made a once-off exception. You can pay ${rand(ctx.order.total)} when we deliver. Your order is confirmed for ${ctx.order.date ? formatDate(ctx.order.date) : "your date"}. Again, our condolences. 🤍`;
@@ -85,11 +99,14 @@ async function grokChat(messages: { role: string; content: string }[], json: boo
 
 const UNDERSTAND_SYSTEM = `You extract structured data from a WhatsApp message sent to a small South African home bakery.
 Today is Friday 2026-11-13. Return ONLY JSON:
-{"greeting": boolean, "emotion": "neutral"|"bereavement"|"urgent"|"frustrated",
+{"intent": "order"|"faq_menu"|"faq_hours"|"faq_location"|"banking_details"|"order_status"|"complaint"|"other",
+ "greeting": boolean, "emotion": "neutral"|"bereavement"|"urgent"|"frustrated",
  "items": [{"name": "cupcake"|"small cake"|"large cake"|"brownie box", "qty": number}],
  "requestedDate": "YYYY-MM-DD" | null,
  "paymentTerm": "on_delivery"|"deposit"|"unspecified"}
-"greeting" is true only if the customer greets first. Resolve weekdays like "next Thursday" to the next upcoming date.`;
+"greeting" is true only if the customer greets first. Resolve weekdays like "next Thursday" to the next upcoming date.
+"intent": "order" = wants to place an order; "faq_menu" = asks about products/prices; "faq_hours" = when you work; "faq_location" = where you are / delivery area;
+"banking_details" = wants to pay / asks for account details; "order_status" = asks about an existing order; "complaint" = unhappy; "other" = anything else.`;
 
 export const grokBrain: Brain = {
   engine: "grok",
@@ -97,13 +114,15 @@ export const grokBrain: Brain = {
     const raw = await grokChat([{ role: "system", content: UNDERSTAND_SYSTEM }, { role: "user", content: text }], true);
     const parsed = JSON.parse(raw) as Understanding;
     if (!parsed.items?.length) parsed.items = mockUnderstand(text).items;
+    if (!parsed.intent) parsed.intent = mockUnderstand(text).intent;
     return parsed;
   },
   async compose(ctx) {
     const system = `You are the WhatsApp assistant for ${business.name} (owner ${business.owner}), a South African home bakery.
 Style: warm, brief (max 4 sentences), plain South African English, light emoji at most one. If the customer mentions a loss, open with genuine condolences before business.
 Business policies:\n${policies.map((p) => `- ${p.code}: ${p.rule}`).join("\n")}
-Never invent prices, dates or policy exceptions: only use the facts in CONTEXT. If CONTEXT says policy.blocked, politely explain the rule and say you've asked the owner about an exception — do NOT grant it.`;
+Never invent prices, dates or policy exceptions: only use the facts in CONTEXT. If CONTEXT says policy.blocked, politely explain the rule and say you've asked the owner about an exception — do NOT grant it.
+If CONTEXT.kind is "info", answer using ONLY CONTEXT.facts. If CONTEXT.kind is "handoff", apologise if the customer is unhappy, do not promise refunds or fixes, and say ${business.owner.split(" ")[0]} will reply personally.`;
     const raw = await grokChat([{ role: "system", content: system }, { role: "user", content: `CONTEXT:\n${JSON.stringify(ctx)}\n\nWrite the reply to the customer.` }], false);
     return raw.trim();
   },

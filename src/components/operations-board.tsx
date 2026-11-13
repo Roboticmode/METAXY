@@ -12,6 +12,7 @@ const statusTone: Record<Order["status"], "ok" | "warn" | "block" | "info" | "ne
   awaiting_deposit: "info",
   awaiting_approval: "warn",
   confirmed: "ok",
+  delivered: "neutral",
   declined: "block",
 };
 

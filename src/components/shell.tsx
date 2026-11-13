@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, Gauge, Radar, ShieldCheck, Users } from "lucide-react";
+import { Building2, Gauge, MessageCircle, Radar, ShieldCheck, Users } from "lucide-react";
 import { business, TURNOVER } from "@/lib/agent/data";
 import type { Tab } from "@/lib/agent/types";
 import { useMetaxy } from "@/lib/store";
@@ -8,13 +8,15 @@ import { ComplianceBoard } from "@/components/compliance-board";
 import { CrmBoard, OpportunitiesBoard } from "@/components/other-boards";
 import { OperationsBoard } from "@/components/operations-board";
 import { WhatsAppPanel } from "@/components/whatsapp-panel";
+import { WhatsAppBoard } from "@/components/whatsapp-board";
 import { MonoLabel, cn } from "@/components/ui";
 
 const tabs: { id: Tab; code: string; label: string; icon: typeof Gauge }[] = [
   { id: "operations", code: "M-01", label: "Operations", icon: Gauge },
-  { id: "compliance", code: "M-02", label: "Compliance", icon: ShieldCheck },
-  { id: "opportunities", code: "M-03", label: "Opportunities", icon: Radar },
-  { id: "crm", code: "M-04", label: "CRM & Retention", icon: Users },
+  { id: "whatsapp", code: "M-02", label: "WhatsApp", icon: MessageCircle },
+  { id: "compliance", code: "M-03", label: "Compliance", icon: ShieldCheck },
+  { id: "opportunities", code: "M-04", label: "Opportunities", icon: Radar },
+  { id: "crm", code: "M-05", label: "CRM & Retention", icon: Users },
 ];
 
 export function Shell() {
@@ -95,6 +97,7 @@ export function Shell() {
 
         <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-card">
           {state.tab === "operations" ? <OperationsBoard /> : null}
+          {state.tab === "whatsapp" ? <WhatsAppBoard /> : null}
           {state.tab === "compliance" ? <ComplianceBoard /> : null}
           {state.tab === "opportunities" ? <OpportunitiesBoard /> : null}
           {state.tab === "crm" ? <CrmBoard /> : null}

@@ -35,11 +35,11 @@ export const calendarUsed: Record<string, number> = {
 export const CAPACITY = 4;
 
 export const initialCustomers: Customer[] = [
-  { id: "c-101", name: "Naledi Khumalo", phone: "+27 71 555 0101", orders: 5, lastOrder: "8 Nov", tags: ["regular", "birthdays"], notes: ["Loves red velvet. Pays by EFT on the day."] },
-  { id: "c-102", name: "Pieter van Wyk", phone: "+27 83 555 0102", orders: 3, lastOrder: "1 Nov", tags: ["office orders"], notes: ["Orders 24 cupcakes monthly for team meeting."] },
-  { id: "c-103", name: "Ayesha Patel", phone: "+27 72 555 0103", orders: 2, lastOrder: "24 Oct", tags: ["regular"], notes: ["Nut allergy in family — never use peanuts."] },
-  { id: "c-104", name: "Lerato Mokoena", phone: "+27 76 555 0104", orders: 1, lastOrder: "12 Oct", tags: ["new"], notes: ["Found us via Facebook community group."] },
-  { id: "c-105", name: "Bongani Nkosi", phone: "+27 60 555 0105", orders: 4, lastOrder: "30 Oct", tags: ["regular", "church events"], notes: ["Large cakes for church functions."] },
+  { id: "c-101", name: "Naledi Khumalo", phone: "+27 71 555 0101", orders: 5, lastOrder: "9 Nov", tags: ["regular", "birthdays"], notes: ["Loves red velvet. Pays by EFT on the day."], optIn: true },
+  { id: "c-102", name: "Pieter van Wyk", phone: "+27 83 555 0102", orders: 3, lastOrder: "16 Oct", tags: ["office orders"], notes: ["Orders 24 cupcakes monthly for team meeting."], optIn: false },
+  { id: "c-103", name: "Ayesha Patel", phone: "+27 72 555 0103", orders: 2, lastOrder: "24 Oct", tags: ["regular"], notes: ["Nut allergy in family — never use peanuts."], optIn: true },
+  { id: "c-104", name: "Lerato Mokoena", phone: "+27 76 555 0104", orders: 1, lastOrder: "11 Nov", tags: ["new"], notes: ["Found us via Facebook community group."], optIn: false },
+  { id: "c-105", name: "Bongani Nkosi", phone: "+27 60 555 0105", orders: 4, lastOrder: "12 Nov", tags: ["regular", "church events"], notes: ["Large cakes for church functions."], optIn: true },
 ];
 
 /** The incoming customer for the hero demo — NEW, no history. */
@@ -66,6 +66,10 @@ export const presetMessages = [
     label: "Wednesday is full",
     text: "hi, 1 large cake for wednesday please",
   },
+  { label: "FAQ — prices", text: "how much are your cupcakes and cakes?" },
+  { label: "FAQ — banking details", text: "Hi, can you send your banking details so I can pay the deposit?" },
+  { label: "Is my order ready?", text: "hi is my order still on for tuesday?" },
+  { label: "Complaint", text: "The cake I got was terrible, the icing was melted. Very disappointed." },
 ];
 
 export const leads = [
@@ -77,13 +81,6 @@ export const leads = [
   { name: "Bakers' Supply Wholesale", type: "Supplier (flour, packaging)", area: "Industria", km: 9.4, status: "Quote requested", fit: 70 },
 ];
 
-export const complianceItems = [
-  { id: "id", label: "Owner ID verified", status: "done", note: "Smart ID captured in document vault" },
-  { id: "tax", label: "SARS income tax number", status: "done", note: "Registered as sole proprietor on eFiling" },
-  { id: "cipc", label: "CIPC company registration", status: "todo", note: "Needed for larger buyers and a business bank account" },
-  { id: "bank", label: "Business bank account", status: "todo", note: "Requires CIPC registration documents" },
-  { id: "vat", label: "VAT registration", status: "na", note: "Not required below R1 million turnover in 12 months" },
-  { id: "foods", label: "Certificate of acceptability (food premises)", status: "todo", note: "Municipal health department — home-kitchen rules apply" },
-] as const;
+// Compliance checklist lives in src/lib/compliance/data.ts
 
 export const TURNOVER = { last12: 118_400, vatThreshold: 1_000_000, voluntaryVat: 50_000 };

@@ -57,7 +57,21 @@ export function mockUnderstand(text: string): Understanding {
       ? "deposit"
       : "unspecified";
 
-  return { greeting, emotion, items, requestedDate, paymentTerm };
+  return { intent: mockIntent(t, emotion), greeting, emotion, items, requestedDate, paymentTerm };
+}
+
+/** Keyword intent routing for the scripted engine. Order matters: most specific first. */
+function mockIntent(t: string, emotion: Understanding["emotion"]): Understanding["intent"] {
+  const mentionsItem = /(cup\s?cakes?|\bcakes?\b|brownies?)/.test(t);
+  const hasQty = /\b\d+\s*(cup\s?cakes?|cakes?|brownies?|brownie box)/.test(t) || /\b(a|one|1)\s+(small|large|big)?\s*cake/.test(t);
+  if (emotion === "frustrated" || /(complain|refund|wrong order|never arrived|melted)/.test(t)) return "complaint";
+  if (/(bank(ing)? details|account (number|details)|where (do|can) i pay|how (do|can) i pay|eft details)/.test(t)) return "banking_details";
+  if (/(is my order|my order (still|ready)|order status|still on for|on its way|when will (it|my order) (come|arrive))/.test(t)) return "order_status";
+  if (/(how much|price|menu|what do you (sell|bake|have)|cost)/.test(t) && !hasQty) return "faq_menu";
+  if (/(open|hours|what time|when do you (bake|work))/.test(t) && !mentionsItem) return "faq_hours";
+  if (/(where are you|location|address|do you deliver|deliver to)/.test(t)) return "faq_location";
+  if (mentionsItem || /\b(order|need|want)\b/.test(t)) return "order";
+  return "other";
 }
 
 export function checkCalendar(isoDate: string | null) {
