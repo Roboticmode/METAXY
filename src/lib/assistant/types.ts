@@ -53,6 +53,8 @@ export type Snapshot = {
   invoices: { id: string; customerId: string; amount: number; dueDate: string; daysOverdue: number; status: InvoiceStatus }[];
   /** client deliveries that land on a fixed university date */
   collisions: { projectId: string; customerId: string; schoolTitle: string; date: string; proposedDue: string }[];
+  /** university schedule items (lectures, labs, assignments, tests, capstone, exams) */
+  school?: { id: string; module: string; title: string; kind: string; date: string; hours: number; fixed: boolean }[];
   compliance: { id: string; label: string; status: ComplianceStatus; dependsOn?: string }[];
   automations: string[];
 };
@@ -62,7 +64,7 @@ export type HistoryItem = { role: "user" | "assistant"; text: string };
 export type AssistantRequest = { message: string; history: HistoryItem[]; snapshot: Snapshot };
 
 export type AssistantResponse = {
-  engine: "scripted" | "grok";
+  engine: "scripted" | "grok" | "openai";
   reply: string;
   actions: UiAction[];
   confirm?: ConfirmCard;

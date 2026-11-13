@@ -1,15 +1,18 @@
-import { business, policies } from "@/lib/agent/data";
+import { business, catalog, policies } from "@/lib/agent/data";
+import { rand } from "@/lib/agent/tools";
 import type { Tab } from "@/lib/agent/types";
-import { ANCHORS, confirmFor } from "./describe";
+import { ANCHORS, confirmFor, describeAction } from "./describe";
 import type { AssistantResponse, HistoryItem, Snapshot, UiAction } from "./types";
 
 /**
- * Grok (xAI) path for the owner's console: chat completions with one tool per UiAction.
+ * LLM path for the owner's console: OpenAI / Grok chat completions with one tool per UiAction.
  * Same request style as src/lib/agent/brain.ts. Any failure is thrown so the route can fall back
  * to the scripted router.
  */
 
 const XAI_URL = "https://api.x.ai/v1/chat/completions";
+const openaiUrl = () => `${(process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/+$/, "")}/chat/completions`;
+const supportsTemperature = (model: string) => !/^(o[134]|gpt-5)/i.test(model);
 const TABS: Tab[] = ["operations", "whatsapp", "compliance", "opportunities", "crm"];
 
 const fn = (name: string, description: string, properties: Record<string, unknown> = {}, required: string[] = []) => ({
@@ -51,7 +54,9 @@ Rules (agents prepare, the owner decides):
 - Two clients are both called Kagiso (Mokoena of Kasi Brew Coffee, Molefe of Molefe Logistics). If the owner just says "Kagiso", ask which one.
 - If you can't do something with the tools, say "I can't do that yet" plainly.
 - Use only ids that appear in STATE. When you open something, also call focus on the matching panel (${Object.keys(ANCHORS).join(", ")}).
+- Always include a brief, natural reply to the owner alongside any tool calls.
 Style: brief (max 4 short sentences or a short bullet list), plain South African English, no emoji, no em dashes.
+Studio packages: ${Object.entries(catalog).map(([k, v]) => `${k} ${rand(v.price)} (${v.hours}h)`).join(", ")}.
 Studio policies:
 ${policies.map((p) => `- ${p.code}: ${p.rule}`).join("\n")}
 STATE:
@@ -99,13 +104,21 @@ export function validate(name: string, args: Record<string, unknown>, snap: Snap
   return null;
 }
 
-export async function askGrok(message: string, history: HistoryItem[], snap: Snapshot): Promise<AssistantResponse> {
-  const res = await fetch(XAI_URL, {
+type ProviderConfig = {
+  engine: "openai" | "grok";
+  label: string;
+  url: string;
+  apiKey: string;
+  model: string;
+};
+
+async function askProvider(provider: ProviderConfig, message: string, history: HistoryItem[], snap: Snapshot): Promise<AssistantResponse> {
+  const res = await fetch(provider.url, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.XAI_API_KEY}` },
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${provider.apiKey}` },
     body: JSON.stringify({
-      model: process.env.GROK_MODEL || "grok-4",
-      temperature: 0.3,
+      model: provider.model,
+      ...(supportsTemperature(provider.model) ? { temperature: 0.3 } : {}),
       tools: TOOLS,
       tool_choice: "auto",
       messages: [
@@ -116,7 +129,7 @@ export async function askGrok(message: string, history: HistoryItem[], snap: Sna
     }),
     signal: AbortSignal.timeout(20_000),
   });
-  if (!res.ok) throw new Error(`xAI ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  if (!res.ok) throw new Error(`${provider.label} ${res.status}: ${(await res.text()).slice(0, 200)}`);
   const data = await res.json();
   const msg = data.choices?.[0]?.message ?? {};
   const calls: ToolCall[] = msg.tool_calls ?? [];
@@ -133,14 +146,62 @@ export async function askGrok(message: string, history: HistoryItem[], snap: Sna
     if (a) actions.push(a);
   }
 
-  const reply = String(msg.content ?? "").trim();
-  if (!reply && !actions.length) throw new Error("Grok returned nothing usable");
+  const rawReply = String(msg.content ?? "").trim();
+  if (!rawReply && !actions.length) throw new Error(`${provider.label} returned nothing usable`);
 
   const confirm = confirmFor(actions, snap);
+  const immediateActions = actions.filter((a) => !confirm?.actions.includes(a));
+  const fallbackSummary = confirm
+    ? "Ready for your go-ahead below."
+    : immediateActions
+        .filter((a) => a.type !== "focus")
+        .map((a) => describeAction(a, snap))
+        .join(". ") || "Done.";
+
   return {
-    engine: "grok",
-    reply: reply || (confirm ? "Ready for your go-ahead below." : "Done."),
-    actions: actions.filter((a) => !confirm?.actions.includes(a)),
+    engine: provider.engine,
+    reply: rawReply || fallbackSummary,
+    actions: immediateActions,
     confirm,
   };
+}
+
+export async function askOpenAI(message: string, history: HistoryItem[], snap: Snapshot): Promise<AssistantResponse> {
+  return askProvider(
+    {
+      engine: "openai",
+      label: "OpenAI",
+      url: openaiUrl(),
+      apiKey: process.env.OPENAI_API_KEY ?? "",
+      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+    },
+    message,
+    history,
+    snap,
+  );
+}
+
+export async function askGrok(message: string, history: HistoryItem[], snap: Snapshot): Promise<AssistantResponse> {
+  return askProvider(
+    {
+      engine: "grok",
+      label: "xAI",
+      url: XAI_URL,
+      apiKey: process.env.XAI_API_KEY ?? "",
+      model: process.env.GROK_MODEL || "grok-4",
+    },
+    message,
+    history,
+    snap,
+  );
+}
+
+export function resolveAssistantProvider(): "openai" | "grok" | "scripted" {
+  const pref = process.env.LLM_PROVIDER?.trim().toLowerCase();
+  if (pref === "scripted" || pref === "mock") return "scripted";
+  if (pref === "grok" && process.env.XAI_API_KEY) return "grok";
+  if (pref === "openai" && process.env.OPENAI_API_KEY) return "openai";
+  if (process.env.OPENAI_API_KEY) return "openai";
+  if (process.env.XAI_API_KEY) return "grok";
+  return "scripted";
 }

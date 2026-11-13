@@ -32,7 +32,7 @@ Compliance & Formalisation · Operations · Opportunity Discovery · CRM & Reten
 ## Run it
 ```bash
 npm install
-cp .env.example .env.local   # optional: add XAI_API_KEY to use real Grok; empty = scripted engine
+cp .env.example .env.local   # optional: add OPENAI_API_KEY (or XAI_API_KEY); empty = scripted engine
 npm run dev                  # http://localhost:3000 (/ landing, /dashboard workspace, /heroes UI testbench)
 ```
 
@@ -40,7 +40,7 @@ npm run dev                  # http://localhost:3000 (/ landing, /dashboard work
 - UI shell and design tokens come from **Vanguard.OS** (Next 16, Tailwind 4, mono/brutalist style).
 - The dashboard is purely presentational: it renders a stream of `AgentEvent`s (`trace`, `reply`, `project`, `project_update`, `invoice_update`, `school_update`, `approval`, `memory`, `compliance`, `handoff`).
 - Three specialist roles coordinate behind the pipeline ([pipeline.ts](src/lib/agent/pipeline.ts)): **`Client Desk`** (WhatsApp intake, deliverables/scope checks, FAQs), **`Books`** (50% deposit policy, invoice aging, EFT reminders), and **`Planner`** (shared university timetable + studio capacity, collision detection, Exam Mode).
-- The agent lives behind a swappable `Brain` ([src/lib/agent/brain.ts](src/lib/agent/brain.ts)): a scripted **mock** engine (works offline) and a **Grok** engine (xAI API). If a Grok call fails, that step falls back to the scripted engine so the demo never breaks.
+- The customer agent lives behind a swappable `Brain` ([src/lib/agent/brain.ts](src/lib/agent/brain.ts)) and the owner console (`Ask METAXY`) runs via `/api/assistant` ([src/lib/assistant/grok.ts](src/lib/assistant/grok.ts)): supporting **OpenAI** (`OPENAI_API_KEY`, default `gpt-4o-mini`), **Grok** (`XAI_API_KEY`), and an offline **scripted** fallback so the demo never breaks.
 
 ## Hero demo scenarios (`Naledi Studio`)
 1. **"Can you do it by Friday?" (Test-week capacity):** Click `1 · Can you do it by Friday?` in the WhatsApp panel → `Planner` spots the Thursday `IS302 Term Test 2` block, proposes Monday 23 Nov, `Books` quotes R3,200 (50% deposit R1,600), and `Client Desk` stages the draft reply in **Approval queue** → click **Approve & send**.
@@ -61,6 +61,6 @@ npm run dev                  # http://localhost:3000 (/ landing, /dashboard work
 - **Prepare with agent** → the agent pre-fills what it can and marks it *ready for you*; Naledi submits/pays herself (*I've submitted it* → *Mark approved*). Finished tasks add certificates to the vault and unlock dependent tasks.
 
 ## Status
-Naledi Studio student-freelancer vertical slice, multi-agent approval pipeline (`Client Desk`, `Books`, `Planner`), WhatsApp inbox/automations, and Compliance modules working end-to-end (scripted engine offline; Grok active when `XAI_API_KEY` is set). Opportunities and CRM tabs use fixture data (CRM memory updates live).
+Naledi Studio student-freelancer vertical slice, multi-agent approval pipeline (`Client Desk`, `Books`, `Planner`), `Ask METAXY` conversational console, WhatsApp inbox/automations, and Compliance modules working end-to-end (OpenAI active when `OPENAI_API_KEY` is set, Grok active when `XAI_API_KEY` is set, scripted engine offline). Opportunities and CRM tabs use fixture data (CRM memory updates live).
 
 > All data in this repo is synthetic. No real customer, banking, or university data.

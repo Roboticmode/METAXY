@@ -119,7 +119,11 @@ export function WhatsAppPanel({ headerAction }: { headerAction?: ReactNode }) {
               </button>
             ))}
           </div>
-          {state.engine ? <Badge tone={state.engine === "grok" ? "ok" : "neutral"}>{state.engine === "grok" ? "Grok live" : "scripted"}</Badge> : null}
+          {state.engine ? (
+            <Badge tone={state.engine === "mock" ? "neutral" : "ok"}>
+              {state.engine === "openai" ? "OpenAI live" : state.engine === "grok" ? "Grok live" : "scripted"}
+            </Badge>
+          ) : null}
         </div>
         {as === "customer" ? (
           <div className="flex max-h-28 flex-wrap gap-1 overflow-y-auto overscroll-contain pointer-coarse:max-h-48 pointer-coarse:gap-1.5">

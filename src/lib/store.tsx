@@ -59,7 +59,7 @@ type State = {
   /** compliance task the agent is preparing right now */
   preparing: string | null;
   busy: boolean;
-  engine: "mock" | "grok" | null;
+  engine: "mock" | "grok" | "openai" | null;
   unseen: Partial<Record<Tab, number>>;
   ui: UiState;
   /** the owner's conversation with METAXY (agent console) */
@@ -107,7 +107,7 @@ type Action =
   | { type: "set_exam_mode"; active: boolean }
   | { type: "compliance_set"; id: string; status: ComplianceStatus }
   | { type: "preparing"; id: string | null }
-  | { type: "busy"; busy: boolean; engine?: "mock" | "grok" }
+  | { type: "busy"; busy: boolean; engine?: "mock" | "grok" | "openai" }
   | { type: "event"; event: AgentEvent; chat: string }
   | { type: "reset" }
   | { type: "ui"; patch: Partial<UiState> }
@@ -254,6 +254,7 @@ export function buildSnapshot(s: State): Snapshot {
     })),
     invoices: s.invoices.map((i) => ({ id: i.id, customerId: i.customerId, amount: i.amount, dueDate: i.dueDate, daysOverdue: i.daysOverdue, status: i.status })),
     collisions: detectCollisions(s.projects, s.school).map((c) => ({ projectId: c.project.id, customerId: c.project.customerId, schoolTitle: c.school.title, date: c.school.date, proposedDue: c.proposedDue })),
+    school: s.school.map((item) => ({ id: item.id, module: item.module, title: item.title, kind: item.kind, date: item.date, hours: item.hours, fixed: item.fixed })),
     compliance: complianceTasks.map((t) => ({ id: t.id, label: t.label, status: s.compliance[t.id]?.status ?? t.status, dependsOn: t.dependsOn })),
     automations: Object.entries(s.automations)
       .filter(([, on]) => on)

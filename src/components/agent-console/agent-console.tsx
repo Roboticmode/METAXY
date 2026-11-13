@@ -189,7 +189,9 @@ function Message({ m, busy, onConfirm, onCancel }: { m: AssistantMsg; busy: bool
     return (
       <div className="max-w-[92%] space-y-1">
         <div className="rounded border border-border bg-secondary/60 px-3 py-2 text-xs leading-relaxed whitespace-pre-line">{m.text}</div>
-        {m.engine ? <MonoLabel className="px-1 text-muted-foreground">{m.engine === "grok" ? "Grok" : "Offline engine"}</MonoLabel> : null}
+        {m.engine ? (
+          <MonoLabel className="px-1 text-muted-foreground">{m.engine === "openai" ? "OpenAI" : m.engine === "grok" ? "Grok" : "Offline engine"}</MonoLabel>
+        ) : null}
       </div>
     );
   }
