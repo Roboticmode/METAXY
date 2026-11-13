@@ -1,4 +1,4 @@
-import type { ApprovalKind, ComplianceStatus, InvoiceStatus, ProjectStatus, Tab } from "@/lib/agent/types";
+import type { AgentRole, ApprovalKind, ComplianceStatus, InvoiceStatus, ProjectStatus, SchoolKind, Tab } from "@/lib/agent/types";
 
 /**
  * Things the owner's assistant can do to the dashboard.
@@ -18,6 +18,25 @@ export type UiAction =
   | { type: "chase_overdue" }
   /** demo helper: play a client message into the WhatsApp simulator */
   | { type: "simulate_customer"; customerId: string; text: string }
+  /*
+   * Data capture. Each runs alone because it only changes internal records or drafts;
+   * anything external or binding it produces (quote, invoice, thank-you, calendar change)
+   * lands in the approval queue and is offered as a confirm card.
+   */
+  /** Client Desk: add a new lead to the CRM; with packages it also drafts the project + quote */
+  | { type: "add_client"; name: string; business: string; phone?: string; packages?: string[]; dueDate?: string; note?: string }
+  /** Client Desk + Planner + Books: draft a project (deliverables, price, 50% deposit, honest date) and hold the quote */
+  | { type: "create_project"; customerId: string; packages: string[]; dueDate?: string; title?: string }
+  /** Books: record a payment the owner received (never moves money) and draft a thank-you */
+  | { type: "log_payment"; invoiceId: string }
+  /** Planner: capture a new or moved school deadline; drafts the calendar change for approval */
+  | { type: "schedule_school_item"; moveId?: string; module: string; title: string; kind: SchoolKind; date: string; hours: number }
+  /** Planner: propose study blocks before a test, around client work; drafts the calendar change */
+  | { type: "plan_study_blocks"; targetId?: string }
+  /** Planner: one-page week (free / committed hours, collision risks) */
+  | { type: "capacity_plan"; weekStart: string }
+  /** Planner: switch Exam Mode (internal, reversible); the pause notices it drafts wait for approval */
+  | { type: "set_exam_mode"; active: boolean }
   // ask-first ↓
   | { type: "run_automations" }
   | { type: "decide_approval"; approvalId: string; decision: "allow" | "refuse" }
@@ -46,15 +65,39 @@ export type Snapshot = {
   examMode: boolean;
   customers: { id: string; name: string; business: string; optIn: boolean }[];
   /** pending only */
-  approvals: { id: string; kind: ApprovalKind; targetId: string; customerId: string; customerName: string; title: string; detail: string; draftMessage?: string }[];
+  approvals: {
+    id: string;
+    kind: ApprovalKind;
+    agent: AgentRole;
+    targetId: string;
+    customerId: string;
+    customerName: string;
+    title: string;
+    detail: string;
+    draftMessage?: string;
+    effects?: string[];
+    refuseEffects?: string[];
+  }[];
   handoffs: { customerId: string; name: string; reason: string }[];
   unread: number;
-  projects: { id: string; customerId: string; title: string; status: ProjectStatus; payment: string; dueDate: string | null; total: number; deposit: number; scopeFlag?: string }[];
-  invoices: { id: string; customerId: string; amount: number; dueDate: string; daysOverdue: number; status: InvoiceStatus }[];
+  projects: {
+    id: string;
+    customerId: string;
+    title: string;
+    status: ProjectStatus;
+    payment: string;
+    dueDate: string | null;
+    total: number;
+    deposit: number;
+    hoursNeeded?: number;
+    deliverables?: string[];
+    scopeFlag?: string;
+  }[];
+  invoices: { id: string; projectId?: string; customerId: string; amount: number; dueDate: string; daysOverdue: number; status: InvoiceStatus }[];
   /** client deliveries that land on a fixed university date */
   collisions: { projectId: string; customerId: string; schoolTitle: string; date: string; proposedDue: string }[];
   /** university schedule items (lectures, labs, assignments, tests, capstone, exams) */
-  school?: { id: string; module: string; title: string; kind: string; date: string; hours: number; fixed: boolean }[];
+  school?: { id: string; module: string; title: string; kind: SchoolKind; date: string; hours: number; fixed: boolean }[];
   compliance: { id: string; label: string; status: ComplianceStatus; dependsOn?: string }[];
   automations: string[];
 };
@@ -72,11 +115,11 @@ export type AssistantResponse = {
 
 export const SUGGESTED_PROMPTS = [
   "What needs my attention today?",
-  "Show me Thabo's chat",
-  "Take me to CIPC registration",
-  "Prepare my scope & IP agreement",
+  "How does next week look?",
+  "Add Lindiwe Dube from Dube Florists, she wants a logo",
+  "Kagiso Molefe paid INV-2041",
+  "IS302 exam moved to 2 December",
+  "Plan study blocks for my IS302 test",
   "Sort out the Capstone clash",
-  "Chase Kagiso Molefe's overdue invoice",
-  "Send today's reminders",
   "Write my IS302 assignment",
 ] as const;

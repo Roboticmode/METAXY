@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useMemo, useReducer, useRef, type ReactNode } from "react";
 import { initialCustomers, initialSchoolItems, newCustomer } from "@/lib/agent/data";
+import { addClient, capacityPlan, createProject, logPayment, planStudy, scheduleSchool, type OpResult, type OpState } from "@/lib/agent/ops";
 import { detectCollisions } from "@/lib/agent/tools";
 import type { AgentEvent, AgentResponse, AgentRole, Approval, ComplianceNudge, ComplianceStatus, Customer, Invoice, Project, SchoolItem, Tab, TraceStatus } from "@/lib/agent/types";
 import { confirmFor, describeAction, taskLabel } from "@/lib/assistant/describe";
@@ -226,6 +227,12 @@ function reducer(s: State, a: Action): State {
           return { ...s, compliance: { ...s.compliance, [e.id]: { status: e.status, prepared: e.prepared, missing: e.missing } } };
         case "handoff":
           return { ...s, handoffs: { ...s.handoffs, [e.customerId]: e.reason }, unseen: bump(s, "whatsapp") };
+        case "customer_add":
+          return s.customers.some((c) => c.id === e.customer.id) ? s : { ...s, customers: [...s.customers, e.customer], unseen: bump(s, "crm") };
+        case "invoice_add":
+          return s.invoices.some((i) => i.id === e.invoice.id) ? s : { ...s, invoices: [e.invoice, ...s.invoices], unseen: bump(s, "operations") };
+        case "school_add":
+          return s.school.some((i) => i.id === e.item.id) ? s : { ...s, school: [...s.school, e.item], unseen: bump(s, "operations") };
       }
       return s;
     }
@@ -247,6 +254,9 @@ export function buildSnapshot(s: State): Snapshot {
       .map((a) => ({
         id: a.id,
         kind: a.kind,
+        agent: a.agent,
+        effects: a.effects,
+        refuseEffects: a.refuseEffects,
         targetId: a.targetId,
         customerId: a.customerId ?? "",
         customerName: a.customerId ? nameOf(a.customerId) : "",
@@ -265,9 +275,11 @@ export function buildSnapshot(s: State): Snapshot {
       dueDate: p.dueDate,
       total: p.total,
       deposit: p.deposit,
+      hoursNeeded: p.hoursNeeded,
+      deliverables: p.deliverables,
       scopeFlag: p.scopeFlag,
     })),
-    invoices: s.invoices.map((i) => ({ id: i.id, customerId: i.customerId, amount: i.amount, dueDate: i.dueDate, daysOverdue: i.daysOverdue, status: i.status })),
+    invoices: s.invoices.map((i) => ({ id: i.id, projectId: i.projectId, customerId: i.customerId, amount: i.amount, dueDate: i.dueDate, daysOverdue: i.daysOverdue, status: i.status })),
     collisions: detectCollisions(s.projects, s.school).map((c) => ({ projectId: c.project.id, customerId: c.project.customerId, schoolTitle: c.school.title, date: c.school.date, proposedDue: c.proposedDue })),
     school: s.school.map((item) => ({ id: item.id, module: item.module, title: item.title, kind: item.kind, date: item.date, hours: item.hours, fixed: item.fixed })),
     compliance: complianceTasks.map((t) => ({ id: t.id, label: t.label, status: s.compliance[t.id]?.status ?? t.status, dependsOn: t.dependsOn })),
@@ -279,7 +291,15 @@ export function buildSnapshot(s: State): Snapshot {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const delayFor = (e: AgentEvent) => (e.type === "reply" ? 900 : e.type === "trace" ? 550 : 380);
-const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
+/** next paint, or 60 ms when the tab is hidden (rAF is paused in background tabs) */
+const nextFrame = () =>
+  new Promise<void>((r) => {
+    const t = setTimeout(r, 60);
+    requestAnimationFrame(() => {
+      clearTimeout(t);
+      r();
+    });
+  });
 /** let React commit pending dispatches so stateRef is current */
 const settle = async () => {
   await sleep(30);
@@ -330,23 +350,29 @@ export function MetaxyProvider({ children }: { children: ReactNode }) {
   stateRef.current = state;
   const focusTimer = useRef<{ el: HTMLElement; timer: ReturnType<typeof setTimeout> } | null>(null);
 
-  /** Call the agent and replay its events with small delays so the owner can follow along. */
+  /** Replay agent events with small delays so the owner can follow along. */
+  const replay = useCallback(async (events: AgentEvent[], chat: string) => {
+    for (const event of events) {
+      await sleep(delayFor(event));
+      dispatch({ type: "event", event, chat });
+    }
+  }, []);
+
+  /** Call the agent and replay its events. */
   const play = useCallback(async (body: unknown, chat: string) => {
     dispatch({ type: "busy", busy: true });
     try {
       const res = await fetch("/api/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = (await res.json()) as AgentResponse;
       dispatch({ type: "busy", busy: true, engine: data.engine });
-      for (const event of data.events) {
-        await sleep(delayFor(event));
-        dispatch({ type: "event", event, chat });
-      }
+      await replay(data.events, chat);
     } catch (err) {
       dispatch({ type: "event", event: { type: "trace", tool: "error", label: "Agent unreachable", detail: String(err), status: "block" }, chat });
     } finally {
       dispatch({ type: "busy", busy: false });
     }
-  }, []);
+  }, [replay]);
 
   const ops = useMemo(() => {
     const enabledAutomations = () =>
@@ -378,27 +404,40 @@ export function MetaxyProvider({ children }: { children: ReactNode }) {
           projects: s.projects,
           enabled: enabledAutomations(),
           examMode: s.examMode,
+          customers: s.customers,
         },
         chat,
       );
     };
     const checkCollisions = async () => {
       const s = stateRef.current;
-      await play({ kind: "check_collisions", projects: s.projects, school: s.school }, s.activeChat);
+      await play({ kind: "check_collisions", projects: s.projects, school: s.school, customers: s.customers }, s.activeChat);
     };
     const chaseOverdue = async () => {
       const s = stateRef.current;
-      await play({ kind: "chase_overdue", invoices: s.invoices }, s.activeChat);
+      await play({ kind: "chase_overdue", invoices: s.invoices, customers: s.customers }, s.activeChat);
     };
     const toggleExamMode = async () => {
       const s = stateRef.current;
       const next = !s.examMode;
       dispatch({ type: "set_exam_mode", active: next });
-      await play({ kind: "toggle_exam_mode", active: next, projects: s.projects }, s.activeChat);
+      await play({ kind: "toggle_exam_mode", active: next, projects: s.projects, customers: s.customers }, s.activeChat);
     };
     const runAutomations = async () => {
       const s = stateRef.current;
-      await play({ kind: "run_automations", enabled: enabledAutomations(), projects: s.projects, invoices: s.invoices }, s.activeChat);
+      await play({ kind: "run_automations", enabled: enabledAutomations(), projects: s.projects, invoices: s.invoices, customers: s.customers }, s.activeChat);
+    };
+    /** Run a local, deterministic data operation (ops.ts) and replay its events. */
+    const runOp = async (op: (st: OpState) => OpResult): Promise<OpResult> => {
+      const s = stateRef.current;
+      const result = op({ customers: s.customers, projects: s.projects, invoices: s.invoices, school: s.school, approvals: s.approvals, examMode: s.examMode });
+      dispatch({ type: "busy", busy: true });
+      try {
+        await replay(result.events, s.activeChat);
+      } finally {
+        dispatch({ type: "busy", busy: false });
+      }
+      return result;
     };
     const prepareCompliance = async (taskId: string) => {
       dispatch({ type: "preparing", id: taskId });
@@ -413,6 +452,11 @@ export function MetaxyProvider({ children }: { children: ReactNode }) {
       if (!approval) return;
       const project = s.projects.find((p) => p.id === approval.targetId);
       await play({ kind: "approval", decision, approval, project }, approval.customerId ?? s.activeChat);
+      // a real calendar change can create a new clash: Planner re-checks straight away (drafts only)
+      if (decision === "allow" && approval.kind === "calendar_change") {
+        await settle();
+        await checkCollisions();
+      }
     };
 
     const setColumns = (cols: { left?: boolean; right?: boolean }) =>
@@ -449,15 +493,35 @@ export function MetaxyProvider({ children }: { children: ReactNode }) {
     const step = (text: string, tone: "ok" | "warn" = "ok") => say({ role: "step", text, tone });
     const pendingIds = () => new Set(stateRef.current.approvals.filter((a) => a.status === "pending").map((a) => a.id));
 
-    /** After a scan or a simulated message drafts new approvals, show each one as a confirm card. Nothing runs without Confirm. */
-    const offerNewApprovals = (before: Set<string>) => {
+    /**
+     * After a scan, an instruction or a simulated message drafts new approvals, show them as confirm cards
+     * (one card each, or one batch card). Nothing runs without Confirm; the drafts also wait in the approval queue.
+     */
+    const offerNewApprovals = (before: Set<string>, batchTitle?: (n: number) => string) => {
       const snap = buildSnapshot(stateRef.current);
       const fresh = snap.approvals.filter((a) => !before.has(a.id));
+      if (batchTitle && fresh.length > 1) {
+        const card = confirmFor(fresh.map((ap): UiAction => ({ type: "decide_approval", approvalId: ap.id, decision: "allow" })), snap);
+        if (card) say({ role: "confirm", card: { ...card, title: batchTitle(fresh.length), confirmLabel: `Approve & send ${fresh.length}` }, status: "pending" });
+        return fresh.length;
+      }
       for (const ap of fresh) {
         const card = confirmFor([{ type: "decide_approval", approvalId: ap.id, decision: "allow" }], snap);
         if (card) say({ role: "confirm", card, status: "pending" });
       }
       return fresh.length;
+    };
+
+    /** Run a data op, show it as a step tagged with its agent, then offer whatever it drafted. */
+    const dataStep = async (label: string, op: (st: OpState) => OpResult, focus: string[]) => {
+      const before = pendingIds();
+      const result = await runOp(op);
+      await settle();
+      if (result.ok) step(label);
+      if (result.say) say({ role: "assistant", text: result.say });
+      for (const anchorId of focus) await focusAnchor(anchorId);
+      if (offerNewApprovals(before)) step("Drafted for your OK: nothing is sent or changed until you confirm");
+      return result;
     };
 
     /** Run actions one by one so the owner can follow. Ask-first actions only run when `confirmed`. */
@@ -530,11 +594,17 @@ export function MetaxyProvider({ children }: { children: ReactNode }) {
             break;
           }
           case "decide_approval": {
+            const before = pendingIds();
+            const kind = stateRef.current.approvals.find((p) => p.id === a.approvalId)?.kind;
             await decide(a.approvalId, a.decision);
             await settle();
             const after = stateRef.current.approvals.find((p) => p.id === a.approvalId)?.status;
             if (after === (a.decision === "allow" ? "allowed" : "refused")) step(label);
             else step(`Couldn't record the decision on ${a.approvalId}`, "warn");
+            if (kind === "calendar_change" && a.decision === "allow") {
+              const n = offerNewApprovals(before);
+              step(n ? `Planner re-checked your deadlines: ${n} clash${n > 1 ? "es" : ""} to decide` : "Planner re-checked your deadlines: no new clashes", n ? "warn" : "ok");
+            }
             break;
           }
           case "send_owner_message":
@@ -542,6 +612,48 @@ export function MetaxyProvider({ children }: { children: ReactNode }) {
             sendOwnerMessage(a.text);
             step(label);
             break;
+          case "add_client": {
+            const r = await dataStep(label, (st) => addClient(a, st), []);
+            if (r.ok && !a.packages?.length) {
+              setTab("crm");
+              await focusAnchor("crm-memory");
+            }
+            break;
+          }
+          case "create_project":
+            await dataStep(label, (st) => createProject(a, st), ["ops-orders"]);
+            break;
+          case "log_payment":
+            await dataStep(label, (st) => logPayment(a.invoiceId, st), ["ops-invoices"]);
+            break;
+          case "schedule_school_item":
+            await dataStep(label, (st) => scheduleSchool(a, st), ["ops-calendar"]);
+            break;
+          case "plan_study_blocks":
+            await dataStep(label, (st) => planStudy(a.targetId, st), ["ops-calendar"]);
+            break;
+          case "capacity_plan": {
+            const r = await runOp((st) => capacityPlan(a.weekStart, st));
+            step(label);
+            if (r.say) say({ role: "assistant", text: `• ${r.say}` });
+            break;
+          }
+          case "set_exam_mode": {
+            if (stateRef.current.examMode === a.active) {
+              step(`Exam Mode is already ${a.active ? "on" : "off"}`, "warn");
+              break;
+            }
+            const before = pendingIds();
+            await toggleExamMode();
+            await settle();
+            step(label);
+            await focusAnchor("ops-triggers");
+            if (a.active) {
+              const n = offerNewApprovals(before, (k) => `Send ${k} Exam Mode notices to active clients`);
+              step(n ? `Drafted ${n} pause notice${n > 1 ? "s" : ""}: nothing is sent until you confirm` : "No active clients to notify", n ? "ok" : "warn");
+            }
+            break;
+          }
         }
       }
     };

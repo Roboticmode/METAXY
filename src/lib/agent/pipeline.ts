@@ -1,11 +1,13 @@
 import { business, catalog, initialCustomers, newCustomer, TURNOVER } from "./data";
 import type { Brain, ComposeCtx } from "./brain";
+import { addDays, TOMORROW, weekday } from "./planner";
 import { checkPlannerCapacity, checkPolicy, detectCollisions, findOverdueInvoices, formatDate, priceItems, rand } from "./tools";
 import type { AgentEvent, AgentRequest, AgentRole, Customer, Invoice, Project, SchoolItem, Understanding } from "./types";
 import { complianceTasks, preparedPacks, vault } from "@/lib/compliance/data";
 import { automations, bankingDetails, businessHours, checkinCandidates, deliveryArea } from "@/lib/whatsapp/data";
 
 const allCustomers: Customer[] = [...initialCustomers, newCustomer];
+type Lookup = (id: string) => Customer | undefined;
 const trace = (agent: AgentRole, tool: string, label: string, detail: string, status: "ok" | "warn" | "block" = "ok"): AgentEvent => ({
   type: "trace",
   agent,
@@ -27,19 +29,22 @@ async function safe<T>(events: AgentEvent[], agent: AgentRole, tool: string, pri
 export async function runAgent(brain: Brain, fallbackBrain: Brain, req: AgentRequest): Promise<AgentEvent[]> {
   const events: AgentEvent[] = [];
   const compose = (agent: AgentRole, ctx: ComposeCtx) => safe(events, agent, "compose_reply", () => brain.compose(ctx), () => fallbackBrain.compose(ctx));
+  // clients added in the app travel with the request; seeded ones are always known
+  const known = "customers" in req && Array.isArray(req.customers) ? req.customers : [];
+  const lookup: Lookup = (id) => known.find((c) => c.id === id) ?? allCustomers.find((c) => c.id === id);
 
   if (req.kind === "compliance_prepare") return prepareCompliance(req.taskId, req.vault);
-  if (req.kind === "run_automations") return runAutomations(req.enabled, req.projects, req.invoices);
-  if (req.kind === "check_collisions") return runCollisionCheck(brain, fallbackBrain, req.projects, req.school);
-  if (req.kind === "chase_overdue") return runChaseOverdue(brain, fallbackBrain, req.invoices);
-  if (req.kind === "toggle_exam_mode") return runExamMode(brain, fallbackBrain, req.active, req.projects);
+  if (req.kind === "run_automations") return runAutomations(req.enabled, req.projects, req.invoices, lookup);
+  if (req.kind === "check_collisions") return runCollisionCheck(brain, fallbackBrain, req.projects, req.school, lookup);
+  if (req.kind === "chase_overdue") return runChaseOverdue(brain, fallbackBrain, req.invoices, lookup);
+  if (req.kind === "toggle_exam_mode") return runExamMode(brain, fallbackBrain, req.active, req.projects, lookup);
 
   if (req.kind === "approval") {
     return resolveApproval(req.decision, req.approval);
   }
 
   // customer_message
-  const customer = allCustomers.find((c) => c.id === req.customerId) ?? newCustomer;
+  const customer = lookup(req.customerId) ?? newCustomer;
   const enabled = new Set(req.enabled ?? automations.map((a) => a.id));
   const projects = req.projects ?? [];
 
@@ -226,7 +231,7 @@ export async function runAgent(brain: Brain, fallbackBrain: Brain, req: AgentReq
 
 /* ------------------------- Scenario 2: Collision week check ------------------------- */
 
-async function runCollisionCheck(brain: Brain, fallback: Brain, projects: Project[], school: SchoolItem[]): Promise<AgentEvent[]> {
+async function runCollisionCheck(brain: Brain, fallback: Brain, projects: Project[], school: SchoolItem[], lookup: Lookup): Promise<AgentEvent[]> {
   const events: AgentEvent[] = [];
   const compose = (ctx: ComposeCtx) => safe(events, "Planner", "compose_reply", () => brain.compose(ctx), () => fallback.compose(ctx));
 
@@ -238,7 +243,11 @@ async function runCollisionCheck(brain: Brain, fallback: Brain, projects: Projec
   }
 
   for (const h of hits) {
-    const customer = allCustomers.find((c) => c.id === h.project.customerId) ?? initialCustomers[3];
+    const customer = lookup(h.project.customerId) ?? initialCustomers[3];
+    // move the flexible study block to the Saturday before the clash (Sat 21 Nov for the seeded Capstone day)
+    let shiftTo = addDays(h.school.date, -1);
+    while (weekday(shiftTo) !== 6 && shiftTo > TOMORROW) shiftTo = addDays(shiftTo, -1);
+    if (shiftTo < TOMORROW) shiftTo = addDays(h.school.date, 1);
     events.push(
       trace(
         "Planner",
@@ -248,7 +257,7 @@ async function runCollisionCheck(brain: Brain, fallback: Brain, projects: Projec
         "block",
       ),
     );
-    const studyNote = h.studyToShift ? `Shift "${h.studyToShift.title}" to Sat 21 Nov` : "Rebalance 2h revision block";
+    const studyNote = h.studyToShift ? `Shift "${h.studyToShift.title}" to ${formatDate(shiftTo)}` : "Rebalance 2h revision block";
     events.push(
       trace(
         "Planner",
@@ -259,10 +268,19 @@ async function runCollisionCheck(brain: Brain, fallback: Brain, projects: Projec
       ),
     );
     const draft = await compose({ kind: "collision_extension", customer, project: h.project, school: h.school, newDate: h.proposedDue });
+    const onAllow: AgentEvent[] = [{ type: "project_update", projectId: h.project.id, patch: { dueDate: h.proposedDue } }];
+    const effects = [`${h.project.id} (${h.project.title}) delivery moves to ${formatDate(h.proposedDue)}`];
+    if (h.studyToShift) {
+      onAllow.push({ type: "school_update", id: h.studyToShift.id, date: shiftTo, note: `Shifted to ${formatDate(shiftTo)} studio/study window` });
+      effects.push(`Your ${h.studyToShift.title} shifts to ${formatDate(shiftTo)}`);
+    }
+    onAllow.push(trace("Planner", "clear_collision", "Collision cleared", `Moved ${h.project.id} to ${formatDate(h.proposedDue)}${h.studyToShift ? ` & shifted ${h.studyToShift.title} to ${formatDate(shiftTo)}` : ""}`, "ok"));
     events.push({
       type: "approval",
       approval: {
-        id: `APR-COL-${h.project.id}`,
+        id: h.school.id === "sch-5" ? `APR-COL-${h.project.id}` : `APR-COL-${h.project.id}-${h.school.id}`,
+        effects,
+        onAllow,
         kind: "collision_fix",
         targetId: h.project.id,
         customerId: customer.id,
@@ -280,7 +298,7 @@ async function runCollisionCheck(brain: Brain, fallback: Brain, projects: Projec
 
 /* ------------------------- Scenario 3: Chase overdue invoices (Books) ------------------------- */
 
-async function runChaseOverdue(brain: Brain, fallback: Brain, invoices: Invoice[]): Promise<AgentEvent[]> {
+async function runChaseOverdue(brain: Brain, fallback: Brain, invoices: Invoice[], lookup: Lookup): Promise<AgentEvent[]> {
   const events: AgentEvent[] = [];
   const compose = (ctx: ComposeCtx) => safe(events, "Books", "compose_reply", () => brain.compose(ctx), () => fallback.compose(ctx));
 
@@ -292,7 +310,7 @@ async function runChaseOverdue(brain: Brain, fallback: Brain, invoices: Invoice[
   }
 
   const top = overdue[0]; // INV-2041 (21 days overdue, Kagiso Molefe)
-  const customer = allCustomers.find((c) => c.id === top.customerId) ?? initialCustomers[1];
+  const customer = lookup(top.customerId) ?? initialCustomers[1];
   events.push(trace("Books", "flag_overdue", "Overdue invoice flagged", `${top.id} · ${customer.name} (${customer.business}) · ${rand(top.amount)} is ${top.daysOverdue} days overdue`, "block"));
 
   const draft = await compose({ kind: "invoice_reminder", customer, invoice: top });
@@ -316,7 +334,7 @@ async function runChaseOverdue(brain: Brain, fallback: Brain, invoices: Invoice[
 
 /* ------------------------- Scenario 5 (Bonus): Exam mode ------------------------- */
 
-async function runExamMode(brain: Brain, fallback: Brain, active: boolean, projects: Project[]): Promise<AgentEvent[]> {
+async function runExamMode(brain: Brain, fallback: Brain, active: boolean, projects: Project[], lookup: Lookup): Promise<AgentEvent[]> {
   const events: AgentEvent[] = [];
   const compose = (ctx: ComposeCtx) => safe(events, "Planner", "compose_reply", () => brain.compose(ctx), () => fallback.compose(ctx));
 
@@ -324,21 +342,27 @@ async function runExamMode(brain: Brain, fallback: Brain, active: boolean, proje
     events.push(trace("Planner", "exam_mode", "Exam Mode turned off", "Studio intake reopened at normal term capacity (8–10 hrs/wk)", "ok"));
     return events;
   }
-  const activeProj = projects.find((p) => p.status === "in_progress");
-  events.push(trace("Planner", "exam_mode", "Exam Mode enabled", "New project intake paused until 5 Dec · preparing client status notice", "warn"));
-  if (activeProj) {
-    const customer = allCustomers.find((c) => c.id === activeProj.customerId) ?? initialCustomers[3];
-    const draft = await compose({ kind: "exam_notice", customer, project: activeProj });
+  // one notice per active client (in progress first), so nobody is ghosted during exams
+  const order: Project["status"][] = ["in_progress", "awaiting_deposit"];
+  const seen = new Set<string>();
+  const targets = order.flatMap((st) => projects.filter((p) => p.status === st)).filter((p) => !seen.has(p.customerId) && !!seen.add(p.customerId));
+  events.push(
+    trace("Planner", "exam_mode", "Exam Mode enabled", `New project intake paused until 5 Dec · drafting ${targets.length} client notice${targets.length === 1 ? "" : "s"}`, "warn"),
+  );
+  for (const p of targets) {
+    const customer = lookup(p.customerId);
+    if (!customer) continue;
+    const draft = await compose({ kind: "exam_notice", customer, project: p });
     events.push({
       type: "approval",
       approval: {
-        id: `APR-EXM-BATCH`,
+        id: `APR-EXM-${customer.id}`,
         kind: "exam_pause",
-        targetId: activeProj.id,
+        targetId: p.id,
         customerId: customer.id,
         agent: "Planner",
-        title: "Exam Mode client notice",
-        detail: `Notify active client ${customer.name} that intake is paused 1–4 Dec while keeping ${activeProj.id} on track.`,
+        title: `Exam Mode notice · ${customer.name}`,
+        detail: `Tell ${customer.name} (${customer.business}) that intake is paused 1–4 Dec while ${p.id} (${p.title}) stays on track.`,
         draftMessage: draft,
         policy: "P-04 · Owner approves batch client notices",
         status: "pending",
@@ -365,6 +389,10 @@ function resolveApproval(decision: "allow" | "refuse", approval: Extract<AgentRe
   );
 
   if (!allow) {
+    if (approval.onRefuse) {
+      events.push(...approval.onRefuse);
+      return events;
+    }
     if (approval.kind === "reply_date" && approval.targetId !== "exam") {
       events.push({ type: "project_update", projectId: approval.targetId, patch: { status: "declined", payment: "Declined by owner" } });
     }
@@ -376,7 +404,9 @@ function resolveApproval(decision: "allow" | "refuse", approval: Extract<AgentRe
     events.push({ type: "reply", customerId: approval.customerId, text: approval.draftMessage });
   }
 
-  switch (approval.kind) {
+  // data-driven approvals carry their own effects (quotes, payments, calendar changes, collision fixes)
+  if (approval.onAllow) events.push(...approval.onAllow);
+  else switch (approval.kind) {
     case "reply_date":
       if (approval.targetId !== "exam") {
         events.push({
@@ -471,10 +501,10 @@ function answerFor(u: Understanding, myProjects: Project[]): { topic: string; fa
 
 /* ------------------------- WhatsApp: scheduled automations ------------------------- */
 
-function runAutomations(enabledIds: string[], projects: Project[], invoices: Invoice[]): AgentEvent[] {
+function runAutomations(enabledIds: string[], projects: Project[], invoices: Invoice[], lookup: Lookup): AgentEvent[] {
   const events: AgentEvent[] = [];
   const enabled = new Set(enabledIds);
-  const cust = (id: string) => allCustomers.find((c) => c.id === id) ?? newCustomer;
+  const cust = (id: string) => lookup(id) ?? newCustomer;
   const firstName = (id: string) => cust(id).name.split(" ")[0];
   let sent = 0;
 
