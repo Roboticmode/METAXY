@@ -20,6 +20,8 @@ export interface AuthGrainHeroProps {
   secondaryCta?: { label: string; href: string };
   /** Hide the "Option 2" lab label (used on the real landing page). */
   hideLabel?: boolean;
+  /** Small note under the card heading. */
+  cardNote?: string;
   /** Colour the bottom edge fades into, so the next section joins smoothly. */
   fadeTo?: string;
 }
@@ -32,11 +34,12 @@ export function AuthGrainHero({
   primaryCta = { label: "Try live demo", href: "/dashboard" },
   secondaryCta,
   hideLabel = false,
+  cardNote = "Tests the GrainGradient side-panel background paired with METAXY's Supabase Auth & Demo launcher.",
   fadeTo,
 }: AuthGrainHeroProps = {}) {
   return (
-    <section className="relative grid min-h-screen w-full grid-cols-1 bg-background text-foreground lg:grid-cols-12">
-      <div className="relative flex min-h-[420px] flex-col justify-between overflow-hidden bg-[#0c1210] p-8 pb-20 text-[#f5f3ec] sm:p-12 sm:pb-20 lg:col-span-7">
+    <section className="relative grid min-h-screen w-full grid-cols-1 bg-background text-foreground lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
+      <div className="relative flex min-h-[420px] flex-col justify-between overflow-hidden bg-[#0c1210] p-8 pb-20 text-[#f5f3ec] sm:p-12 sm:pb-20 lg:min-w-0">
         <div className="pointer-events-none absolute inset-0">
           <GrainGradient
             style={{ width: "100%", height: "100%" }}
@@ -94,13 +97,13 @@ export function AuthGrainHero({
         </div>
       </div>
 
-      <div className="flex items-center justify-center bg-card p-6 sm:p-12 lg:col-span-5">
+      <div className="flex min-w-0 items-center justify-center bg-card p-6 sm:p-12 lg:px-10 xl:px-16">
         <div className="w-full max-w-md space-y-4">
           <div className="space-y-1">
             <MonoLabel className="text-muted-foreground">Owner Workspace</MonoLabel>
             <h2 className="text-xl font-bold tracking-tight">Sign in or launch the demo</h2>
             <p className="text-xs text-muted-foreground">
-              Tests the GrainGradient side-panel background paired with METAXY&apos;s Supabase Auth &amp; Demo launcher.
+              {cardNote}
             </p>
           </div>
           <AuthCard userEmail={userEmail} />

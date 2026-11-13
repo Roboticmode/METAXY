@@ -16,6 +16,7 @@ export default function GrainSlide() {
       primaryCta={{ label: ctaLabel(email), href: "/dashboard" }}
       secondaryCta={HERO_SECONDARY}
       hideLabel
+      cardNote="Sign in to keep an owner session, or launch the live demo with no sign-up."
       fadeTo={HERO_FADE_TO}
     />
   );
