@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type RefObject } from "react";
+import { useMetaxy } from "@/lib/store";
 
 /**
  * Layout breakpoints for the command centre (match Tailwind's `md` and `xl`).
@@ -86,20 +87,50 @@ export function useColumns() {
   const leftOpen = left ?? defaults.leftOpen;
   const rightOpen = right ?? defaults.rightOpen;
 
+  // Bridge to the store so the agent console's `set_columns` action can open/close columns,
+  // and so the store always knows what the owner last chose.
+  const { state, setColumns } = useMetaxy();
+
   const setLeftOpen = useCallback(
     (v: boolean) => {
       setLeft(v);
       if (bp === "desktop") writeStored({ leftOpen: v });
+      setColumns({ left: v });
     },
-    [bp],
+    [bp, setColumns],
   );
   const setRightOpen = useCallback(
     (v: boolean) => {
       setRight(v);
       if (bp === "desktop") writeStored({ rightOpen: v });
+      setColumns({ right: v });
     },
-    [bp],
+    [bp, setColumns],
   );
+
+  // Store → layout. Skip the first run: the store's initial value is a default, not a request.
+  const storeLeft = state.ui.leftOpen;
+  const storeRight = state.ui.rightOpen;
+  const seenLeft = useRef(false);
+  const seenRight = useRef(false);
+  useEffect(() => {
+    if (!seenLeft.current) {
+      seenLeft.current = true;
+      return;
+    }
+    setLeft(storeLeft);
+    if (bp === "desktop") writeStored({ leftOpen: storeLeft });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- react to the store value only
+  }, [storeLeft]);
+  useEffect(() => {
+    if (!seenRight.current) {
+      seenRight.current = true;
+      return;
+    }
+    setRight(storeRight);
+    if (bp === "desktop") writeStored({ rightOpen: storeRight });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- react to the store value only
+  }, [storeRight]);
 
   return {
     bp,
