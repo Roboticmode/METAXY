@@ -31,3 +31,14 @@ To refresh the screenshots, run the app, reset it, and walk the run-sheet steps 
 - Time each demo step in rehearsal and write the numbers into the run-sheet's timing table.
 - Record the fallback video (run-sheet → *Fallback plan*).
 - Hook-stat figures (≈3M SMEs, 1.2–1.8M unregistered) are labelled estimates from the event briefing. Find a citable source if a judge asks.
+
+## Presenter mode (deck inside the app)
+
+The deck is also served by the app at `/pitch` (same file, same fonts and screenshots; it still opens on its own from disk).
+On `/dashboard`, press **Present** in the agent dock. The deck covers the dashboard beside the dock; **Live demo** / **Slides** (or the agent) switch in one action.
+
+Typed commands work offline (no API key), and each shows the script line to say:
+`start presenting` · `next slide` · `go to slide 7` · `previous slide` · `start the demo` · `play the Friday message` · `check collisions` · `play the coursework message` · `back to the slides` · `where were we?` · `stop presenting`.
+The agent never approves: a person clicks **Approve & send**.
+
+With `OPENAI_API_KEY` set, **Go Live** while presenting (or press Present during a live session) sends the pitch cue from `src/lib/presenter/script.ts`. The live agent then speaks each slide's line, runs the four demo beats with the exact preset texts, and pauses for questions. Its tools are `present_slide`, `next_slide`, `prev_slide`, `show_demo`, `show_slides`, `end_presenter` and `get_slide`.

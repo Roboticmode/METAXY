@@ -37,6 +37,16 @@ export type UiAction =
   | { type: "capacity_plan"; weekStart: string }
   /** Planner: switch Exam Mode (internal, reversible); the pause notices it drafts wait for approval */
   | { type: "set_exam_mode"; active: boolean }
+  /*
+   * Presenter mode (pitch): move the deck served at /pitch and switch between slides and the live demo.
+   * Screen-only, so they run alone.
+   */
+  | { type: "present_slide"; n: number }
+  | { type: "next_slide" }
+  | { type: "prev_slide" }
+  | { type: "show_demo" }
+  | { type: "show_slides" }
+  | { type: "end_presenter" }
   // ask-first ↓
   | { type: "run_automations" }
   | { type: "decide_approval"; approvalId: string; decision: "allow" | "refuse" }
@@ -100,6 +110,8 @@ export type Snapshot = {
   school?: { id: string; module: string; title: string; kind: SchoolKind; date: string; hours: number; fixed: boolean }[];
   compliance: { id: string; label: string; status: ComplianceStatus; dependsOn?: string }[];
   automations: string[];
+  /** present only while presenter mode is on; notes and time come from the deck's data-notes / data-time */
+  presenter?: { view: "slides" | "demo"; slide: number; total: number; title: string; time: string; notes: string };
 };
 
 export type HistoryItem = { role: "user" | "assistant"; text: string };

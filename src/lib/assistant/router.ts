@@ -5,6 +5,7 @@ import type { ApprovalKind, SchoolKind, Tab } from "@/lib/agent/types";
 import { INVOICE_RE, KIND_HOURS, parseDate, parseModule, parseNewClient, parsePackages, parseSchoolKind, parseWeek, PHONE_RE } from "./capture";
 import { deadlines } from "@/lib/compliance/data";
 import { automationPreview, confirmFor, customerName, firstName, TAB_LABEL } from "./describe";
+import { presenterRoute } from "@/lib/presenter/route";
 import type { AssistantResponse, Snapshot, UiAction } from "./types";
 
 /**
@@ -97,6 +98,10 @@ export function route(message: string, snap: Snapshot): AssistantResponse {
   const m = message.toLowerCase().replace(/[’']/g, "'").trim();
 
   if (!m) return reply("Ask me anything about the studio, or pick one of the suggestions.");
+
+  /* ---------- presenter mode: slides, demo hand-off, run-sheet beats ---------- */
+  const presenting = presenterRoute(m, snap);
+  if (presenting) return presenting;
 
   /* ---------- never: coursework, money and filings stay with Naledi ---------- */
   if (COURSEWORK.test(m) && DO_WORK.test(m) && !CLASH.test(m) && !STUDY.test(m) && !CAPACITY.test(m) && !EXAM_MODE.test(m)) {

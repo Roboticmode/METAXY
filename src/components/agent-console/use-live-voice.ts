@@ -409,6 +409,17 @@ export function useLiveVoice({ getSnapshot, pushLiveTranscript, pushLiveMessage,
     [dispatchTextTurn, status],
   );
 
+  /** Instruction turn (e.g. the presenter cue): sent like a typed turn but not shown in the transcript. */
+  const sendCue = useCallback(
+    (text: string) => {
+      if (!text.trim() || status !== "live") return false;
+      if (activeResponseRef.current || batchesRef.current.size > 0) queuedTextsRef.current.push(text);
+      else dispatchTextTurn(text);
+      return true;
+    },
+    [dispatchTextTurn, status],
+  );
+
   const toggleMute = useCallback(() => {
     if (audioMode !== "mic") return;
     const stream = streamRef.current;
@@ -430,5 +441,6 @@ export function useLiveVoice({ getSnapshot, pushLiveTranscript, pushLiveMessage,
     disconnect,
     toggleMute,
     sendTextTurn,
+    sendCue,
   };
 }

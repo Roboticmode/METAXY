@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from "react";
-import { ArrowRight, Check, Mic, MicOff, PanelRightClose, PanelRightOpen, PhoneOff, Plus, Send, ShieldAlert, X } from "lucide-react";
+import { ArrowRight, Check, Mic, MicOff, PanelRightClose, PanelRightOpen, PhoneOff, Plus, Presentation, Send, ShieldAlert, X } from "lucide-react";
 import { SUGGESTED_PROMPTS } from "@/lib/assistant/types";
+import { presenterCue } from "@/lib/presenter/script";
 import { useMetaxy, type AgentSession, type AssistantMsg, type WorkspaceAgentRole } from "@/lib/store";
 import { Badge, Btn, MonoLabel, cn } from "@/components/ui";
 import { ThinkingOrb, type OrbState } from "@/components/ui/thinking-orbs";
@@ -35,6 +36,7 @@ export function AgentDock({
     setActiveAgent,
     closeAgent,
     setLiveAgent,
+    setPresenter,
     getSnapshot,
     pushLiveTranscript,
     pushLiveMessage,
@@ -86,6 +88,26 @@ export function AgentDock({
     if (state.liveAgentId) return;
     if (live.status === "live" || live.status === "connecting") live.disconnect();
   }, [live, state.liveAgentId]);
+
+  // presenter cue: sent once each time presenter mode starts during a live session
+  // (a session opened while presenting already has it in its instructions)
+  const cueSent = useRef(false);
+  const presenting = state.presenter.on;
+  useEffect(() => {
+    if (!presenting) {
+      cueSent.current = false;
+      return;
+    }
+    if (live.status === "connecting") cueSent.current = true;
+    if (cueSent.current || live.status !== "live") return;
+    cueSent.current = true;
+    live.sendCue(`${presenterCue()}\nPresenter mode has started on slide ${state.presenter.slide}. Call get_slide, then present from there.`);
+  }, [presenting, live, state.presenter.slide]);
+
+  const togglePresenter = () => {
+    if (state.presenter.on) setPresenter({ on: false });
+    else setPresenter({ on: true, view: "slides" });
+  };
 
   const submit = (text: string) => {
     if (!active || !text.trim() || busy) return;
@@ -179,6 +201,19 @@ export function AgentDock({
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                onClick={togglePresenter}
+                aria-pressed={state.presenter.on}
+                title={state.presenter.on ? "Leave presenter mode" : "Present the pitch deck (the agent can move slides and run the demo)"}
+                className={cn(
+                  "flex h-7 cursor-pointer items-center gap-1 rounded-sm border px-2 font-mono text-[10px] font-bold uppercase transition-colors",
+                  state.presenter.on ? "border-foreground bg-foreground text-background" : "border-border text-muted-foreground hover:bg-foreground/5 hover:text-foreground",
+                )}
+              >
+                <Presentation className="size-3" />
+                <span>{state.presenter.on ? `Slide ${state.presenter.view === "demo" ? "demo" : state.presenter.slide}` : "Present"}</span>
+              </button>
               <button
                 type="button"
                 onClick={toggleLive}

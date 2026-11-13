@@ -11,6 +11,7 @@ import { isAskFirst, type AssistantResponse, type ConfirmCard, type HistoryItem,
 import { validate } from "@/lib/assistant/validate";
 import { complianceTasks, currentVault } from "@/lib/compliance/data";
 import { defaultAutomations, seedInvoices, seedProjects, seedThreads } from "@/lib/whatsapp/data";
+import { SLIDE_COUNT, slideLine } from "@/lib/presenter/script";
 
 export type ChatMsg = { id: number; customerId: string; from: "customer" | "agent" | "owner" | "system"; text: string; at: string; automation?: string };
 export type TraceItem = { id: number; agent?: AgentRole; tool: string; label: string; detail: string; status: TraceStatus; at: string };
@@ -25,6 +26,19 @@ export type UiState = {
   /** compliance task open in the detail panel */
   complianceTask: string;
 };
+
+export type PresenterState = {
+  on: boolean;
+  view: "slides" | "demo";
+  /** 1-based; the deck reports title / time / notes back for the current slide */
+  slide: number;
+  total: number;
+  title: string;
+  time: string;
+  notes: string;
+};
+
+const initialPresenter = (): PresenterState => ({ on: false, view: "slides", slide: 1, total: SLIDE_COUNT, title: "", time: "", notes: "" });
 
 export type ConfirmStatus = "pending" | "running" | "confirmed" | "cancelled";
 
@@ -82,6 +96,8 @@ type State = {
   engine: "mock" | "grok" | "openai" | null;
   unseen: Partial<Record<Tab, number>>;
   ui: UiState;
+  /** pitch presenter: the deck at /pitch over the dashboard, or the live demo */
+  presenter: PresenterState;
   /** spawned owner-console agents. The business ledger above stays shared. */
   agents: AgentSession[];
   activeAgentId: string;
@@ -117,6 +133,7 @@ const initialState = (): State => ({
   engine: null,
   unseen: {},
   ui: { leftOpen: true, rightOpen: true, focus: null, complianceTask: "cipc" },
+  presenter: initialPresenter(),
   agents: [seedWorkspaceAgent()],
   activeAgentId: "agent-1",
   liveAgentId: null,
@@ -136,6 +153,7 @@ type Action =
   | { type: "event"; event: AgentEvent; chat: string }
   | { type: "reset" }
   | { type: "ui"; patch: Partial<UiState> }
+  | { type: "presenter"; patch: Partial<PresenterState> }
   | { type: "spawn_agent" }
   | { type: "set_active_agent"; id: string }
   | { type: "close_agent"; id: string }
@@ -190,9 +208,14 @@ function reducer(s: State, a: Action): State {
     case "compliance_set":
       return { ...s, compliance: { ...s.compliance, [a.id]: { ...s.compliance[a.id], status: a.status } } };
     case "reset":
-      return { ...initialState(), tab: s.tab, engine: s.engine, ui: s.ui, agents: s.agents, activeAgentId: s.activeAgentId, liveAgentId: s.liveAgentId };
+      return { ...initialState(), tab: s.tab, engine: s.engine, ui: s.ui, presenter: s.presenter, agents: s.agents, activeAgentId: s.activeAgentId, liveAgentId: s.liveAgentId };
     case "ui":
       return { ...s, ui: { ...s.ui, ...a.patch } };
+    case "presenter": {
+      const next = { ...s.presenter, ...a.patch };
+      next.slide = Math.max(1, Math.min(next.total, Math.round(next.slide)));
+      return { ...s, presenter: next };
+    }
     case "spawn_agent": {
       const n = s.agents.length + 1;
       const used = new Set(s.agents.map((agent) => agent.role));
@@ -355,6 +378,9 @@ export function buildSnapshot(s: State): Snapshot {
     automations: Object.entries(s.automations)
       .filter(([, on]) => on)
       .map(([id]) => id),
+    ...(s.presenter.on
+      ? { presenter: { view: s.presenter.view, slide: s.presenter.slide, total: s.presenter.total, title: s.presenter.title, time: s.presenter.time, notes: s.presenter.notes } }
+      : {}),
   };
 }
 
@@ -394,6 +420,8 @@ type Ctx = {
   setComplianceStatus: (taskId: string, status: ComplianceStatus) => void;
   decide: (approvalId: string, decision: "allow" | "refuse") => Promise<void>;
   reset: () => void;
+  /* presenter mode (pitch deck at /pitch) */
+  setPresenter: (patch: Partial<PresenterState>) => void;
   /* layout (driven by the owner or by the agent console) */
   setColumns: (cols: { left?: boolean; right?: boolean }) => void;
   /** scroll to a panel and ring it for 2 s; resolves false (and does nothing) if the panel isn't on screen */
@@ -728,6 +756,25 @@ export function MetaxyProvider({ children }: { children: ReactNode }) {
             }
             break;
           }
+          case "present_slide":
+          case "next_slide":
+          case "prev_slide": {
+            const cur = stateRef.current.presenter;
+            const n = a.type === "present_slide" ? a.n : cur.slide + (a.type === "next_slide" ? 1 : -1);
+            const slide = Math.max(1, Math.min(cur.total, n));
+            dispatch({ type: "presenter", patch: { on: true, view: "slides", slide } });
+            step(agentId, describeAction({ type: "present_slide", n: slide }, buildSnapshot(stateRef.current)));
+            break;
+          }
+          case "show_demo":
+          case "show_slides":
+            dispatch({ type: "presenter", patch: { on: true, view: a.type === "show_demo" ? "demo" : "slides" } });
+            step(agentId, label);
+            break;
+          case "end_presenter":
+            dispatch({ type: "presenter", patch: { on: false, view: "slides" } });
+            step(agentId, label);
+            break;
         }
       }
     };
@@ -803,6 +850,11 @@ export function MetaxyProvider({ children }: { children: ReactNode }) {
       if (name === "get_dashboard_state") {
         return { ok: true, state: snap };
       }
+      if (name === "get_slide") {
+        const p = stateRef.current.presenter;
+        if (!p.on) return { ok: true, presenter: "off", hint: "Call present_slide { n: 1 } to start presenting." };
+        return { ok: true, view: p.view, slide: p.slide, total: p.total, title: p.title, time: p.time, notes: p.notes, line: slideLine(p.slide)?.line ?? "" };
+      }
       const action = validate(name, args, snap);
       if (!action) {
         return { ok: false, error: `Invalid arguments or unknown id for "${name}". Check state ids before retrying.`, state: snap };
@@ -834,6 +886,7 @@ export function MetaxyProvider({ children }: { children: ReactNode }) {
     return {
       setTab,
       reset: () => dispatch({ type: "reset" }),
+      setPresenter: (patch: Partial<PresenterState>) => dispatch({ type: "presenter", patch }),
       openChat,
       togglePause: (customerId: string) => dispatch({ type: "toggle_pause", customerId }),
       toggleAutomation: (id: string) => dispatch({ type: "toggle_automation", id }),

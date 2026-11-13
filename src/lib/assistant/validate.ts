@@ -1,6 +1,7 @@
 import { catalog } from "@/lib/agent/data";
 import { NEXT_MONDAY, TOMORROW } from "@/lib/agent/planner";
 import type { SchoolKind, Tab } from "@/lib/agent/types";
+import { SLIDE_COUNT } from "@/lib/presenter/script";
 import { ANCHORS } from "./describe";
 import type { Snapshot, UiAction } from "./types";
 
@@ -84,6 +85,16 @@ export function validate(name: string, args: Record<string, unknown>, snap: Snap
       return { type: "capacity_plan", weekStart: date(str("weekStart"), true) ?? NEXT_MONDAY };
     case "set_exam_mode":
       return typeof args.active === "boolean" ? { type: "set_exam_mode", active: args.active } : null;
+    case "present_slide": {
+      const n = typeof args.n === "number" ? args.n : Number.parseInt(str("n"), 10);
+      return Number.isInteger(n) && n >= 1 && n <= SLIDE_COUNT ? { type: "present_slide", n } : null;
+    }
+    case "next_slide":
+    case "prev_slide":
+    case "show_demo":
+    case "show_slides":
+    case "end_presenter":
+      return { type: name };
   }
   return null;
 }

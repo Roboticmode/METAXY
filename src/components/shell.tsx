@@ -31,6 +31,7 @@ import { OperationsBoard } from "@/components/operations-board";
 import { WhatsAppBoard } from "@/components/whatsapp-board";
 import { WhatsAppPanel } from "@/components/whatsapp-panel";
 import { AgentDock } from "@/components/agent-console";
+import { PresenterStage } from "@/components/presenter-stage";
 import { Badge, MonoLabel, cn } from "@/components/ui";
 import { MetaxyMark } from "@/components/ui/metaxy-mark";
 import { useColumns, useSheet } from "@/components/use-columns";
@@ -319,6 +320,7 @@ export function Shell({ userEmail = null }: { userEmail?: string | null }) {
           </div>
         </aside>
 
+        <PresenterStage right={sheetMode ? 0 : agentOpen ? agentWidth : 40} />
         <AgentDock open={agentOpen} sheet={sheetMode} width={agentWidth} onOpenChange={setAgentOpen} onWidth={cols.setAgentWidth} />
       </div>
 

@@ -122,7 +122,19 @@ const UI_TOOL_SPECS: ToolSpec[] = [
   ),
   spec("capacity_plan", `Planner: one-page week (free vs committed hours, deliveries, collision risks). weekStart is the first day; "next week" is ${NEXT_MONDAY}.`, { weekStart: ISO }, ["weekStart"]),
   spec("set_exam_mode", "Planner: switch Exam Mode on or off (pauses new intake until 5 Dec). When on, it drafts a pause notice per active client, held for approval.", { active: { type: "boolean" } }, ["active"]),
+  spec("present_slide", "Presenter mode: show slide n of the 12-slide pitch deck (opens presenter mode if it is off).", { n: { type: "integer", minimum: 1, maximum: 12 } }, ["n"]),
+  spec("next_slide", "Presenter mode: advance the pitch deck one slide."),
+  spec("prev_slide", "Presenter mode: go back one slide."),
+  spec("show_demo", "Presenter mode: hide the deck and show the live dashboard for the demo (one action)."),
+  spec("show_slides", "Presenter mode: bring the deck back over the dashboard, on the current slide."),
+  spec("end_presenter", "Leave presenter mode and close the deck."),
 ];
+
+/** Live path only (the typed path gets the same data in STATE.presenter). */
+const SLIDE_READER_SPEC = spec(
+  "get_slide",
+  "Presenter mode: read the current slide number, title, speaker notes (data-notes), timing (data-time), the scripted line to say, and whether the deck or the live demo is showing.",
+);
 
 const STATE_READER_SPEC = spec(
   "get_dashboard_state",
@@ -130,7 +142,7 @@ const STATE_READER_SPEC = spec(
 );
 
 export function toResponsesTools(includeStateReader = false) {
-  const list = includeStateReader ? [...UI_TOOL_SPECS, STATE_READER_SPEC] : UI_TOOL_SPECS;
+  const list = includeStateReader ? [...UI_TOOL_SPECS, STATE_READER_SPEC, SLIDE_READER_SPEC] : UI_TOOL_SPECS;
   return list.map((t) => ({
     type: "function" as const,
     name: t.name,
@@ -171,6 +183,7 @@ Rules (agents prepare, the owner decides):
 - Two clients are both called Kagiso (Mokoena of Kasi Brew Coffee, Molefe of Molefe Logistics). If the owner just says "Kagiso", ask which one.
 - If you can't do something with the tools, say "I can't do that yet" plainly.
 - Use only ids that appear in STATE. When you open something, also call focus on the matching panel (${Object.keys(ANCHORS).join(", ")}).
+- Presenter mode (when STATE.presenter is present): you are presenting the pitch. Use present_slide, next_slide, show_demo and show_slides. STATE.presenter has the current slide, its speaker notes and timing. Never approve on stage: say that a person clicks Approve & send.
 - Always include a brief, natural reply to the owner alongside any tool calls.
 Style: brief (max 4 short sentences or a short bullet list), plain South African English, no emoji, no em dashes.
 Studio packages: ${Object.entries(catalog).map(([k, v]) => `${k} ${rand(v.price)} (${v.hours}h)`).join(", ")}.

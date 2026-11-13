@@ -1,6 +1,7 @@
 import { formatDate, rand } from "@/lib/agent/tools";
 import type { Tab } from "@/lib/agent/types";
 import { automations, checkinCandidates } from "@/lib/whatsapp/data";
+import { slideLine } from "@/lib/presenter/script";
 import type { ConfirmCard, Snapshot, UiAction } from "./types";
 import { isAskFirst } from "./types";
 
@@ -93,6 +94,18 @@ export function describeAction(a: UiAction, snap: Snapshot): string {
       return `Planner worked out the week of ${formatDate(a.weekStart)}`;
     case "set_exam_mode":
       return `Exam Mode turned ${a.active ? "on" : "off"}`;
+    case "present_slide":
+      return `Slide ${a.n}${slideLine(a.n) ? ` · ${slideLine(a.n)!.title}` : ""}`;
+    case "next_slide":
+      return "Next slide";
+    case "prev_slide":
+      return "Previous slide";
+    case "show_demo":
+      return "Switched to the live demo";
+    case "show_slides":
+      return "Back to the slides";
+    case "end_presenter":
+      return "Presenter mode off";
   }
 }
 
