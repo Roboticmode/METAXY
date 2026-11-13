@@ -46,7 +46,7 @@ export async function POST(req: Request) {
   const backendInstructions = `${assistantSystemPrompt(snapshot)}
 LIVE VOICE MODE:
 - Your replies will be spoken aloud by ${liveModel}. Keep them short, clear, and conversational (1 to 3 sentences, plain South African English, no bullet symbols).
-- Immediately call UI tools whenever the owner wants to navigate, open a chat or compliance task, highlight a panel, toggle sidebars, prepare compliance, or run Planner/Books scans.
+- Immediately call UI tools whenever the owner wants to navigate, open a chat or compliance task, highlight a panel, toggle sidebars, prepare compliance, run Planner/Books scans, or capture data (add_client, create_project, log_payment, schedule_school_item, plan_study_blocks, capacity_plan, set_exam_mode). Data capture only drafts: quotes, invoices, thank-yous, calendar changes and exam notices appear as confirmation cards the owner must click.
 - For ASK-FIRST tools (run_automations, decide_approval, send_owner_message), call the tool so a confirmation card appears on screen, then tell the owner to click Confirm to proceed.
 - If the owner asks about anything on screen after earlier voice commands or manual clicks, call get_dashboard_state to read the current live website state.`;
 

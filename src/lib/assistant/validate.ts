@@ -1,8 +1,12 @@
-import type { Tab } from "@/lib/agent/types";
+import { catalog } from "@/lib/agent/data";
+import { NEXT_MONDAY, TOMORROW } from "@/lib/agent/planner";
+import type { SchoolKind, Tab } from "@/lib/agent/types";
 import { ANCHORS } from "./describe";
 import type { Snapshot, UiAction } from "./types";
 
 const TABS: Tab[] = ["operations", "whatsapp", "compliance", "opportunities", "crm"];
+export const PACKAGES = Object.keys(catalog);
+export const SCHOOL_KINDS: SchoolKind[] = ["lecture", "assignment", "test", "capstone", "exam", "study"];
 
 /** Keep only well-formed UI actions that point at entities present in the current snapshot. */
 export function validate(name: string, args: Record<string, unknown>, snap: Snapshot): UiAction | null {
@@ -40,6 +44,57 @@ export function validate(name: string, args: Record<string, unknown>, snap: Snap
         : null;
     case "send_owner_message":
       return customer(str("customerId")) && str("text").trim() ? { type: "send_owner_message", customerId: str("customerId"), text: str("text").trim() } : null;
+    /* data capture: these run alone; whatever binding they produce is drafted as an approval (ask first) */
+    case "add_client": {
+      const name = str("name").trim();
+      const biz = str("business").trim();
+      if (!name || !biz || snap.customers.some((c) => c.name.toLowerCase() === name.toLowerCase() || c.business.toLowerCase() === biz.toLowerCase())) return null;
+      const pk = packages(args.packages);
+      const due = date(str("dueDate"));
+      return { type: "add_client", name, business: biz, ...(str("phone").trim() ? { phone: str("phone").trim() } : {}), ...(pk.length ? { packages: pk } : {}), ...(due ? { dueDate: due } : {}) };
+    }
+    case "create_project": {
+      const pk = packages(args.packages);
+      const due = date(str("dueDate"));
+      return customer(str("customerId")) && pk.length
+        ? { type: "create_project", customerId: str("customerId"), packages: pk, ...(due ? { dueDate: due } : {}), ...(str("title").trim() ? { title: str("title").trim().slice(0, 60) } : {}) }
+        : null;
+    }
+    case "log_payment": {
+      const inv = snap.invoices.find((i) => i.id === str("invoiceId"));
+      return inv && inv.status !== "paid" ? { type: "log_payment", invoiceId: inv.id } : null;
+    }
+    case "schedule_school_item": {
+      const d = date(str("date"));
+      const kind = str("kind") as SchoolKind;
+      const hours = typeof args.hours === "number" ? Math.min(12, Math.max(1, Math.round(args.hours))) : 0;
+      const move = str("moveId") ? (snap.school ?? []).find((s) => s.id === str("moveId")) : undefined;
+      if (!d || (str("moveId") && !move)) return null;
+      if (move) return { type: "schedule_school_item", moveId: move.id, module: move.module, title: move.title, kind: move.kind, date: d, hours: move.hours };
+      return SCHOOL_KINDS.includes(kind) && str("module").trim() && str("title").trim() && hours
+        ? { type: "schedule_school_item", module: str("module").trim(), title: str("title").trim().slice(0, 60), kind, date: d, hours }
+        : null;
+    }
+    case "plan_study_blocks": {
+      const id = str("targetId");
+      if (!id) return { type: "plan_study_blocks" };
+      return (snap.school ?? []).some((s) => s.id === id) ? { type: "plan_study_blocks", targetId: id } : null;
+    }
+    case "capacity_plan":
+      return { type: "capacity_plan", weekStart: date(str("weekStart"), true) ?? NEXT_MONDAY };
+    case "set_exam_mode":
+      return typeof args.active === "boolean" ? { type: "set_exam_mode", active: args.active } : null;
   }
   return null;
+}
+
+/** Only real catalogue packages. */
+function packages(v: unknown): string[] {
+  return Array.isArray(v) ? [...new Set(v.filter((p): p is string => typeof p === "string" && PACKAGES.includes(p)))] : [];
+}
+
+/** A valid ISO date from tomorrow on (or today, for a capacity week). */
+function date(s: string, allowToday = false): string | undefined {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s) || Number.isNaN(Date.parse(s))) return undefined;
+  return s >= (allowToday ? "2026-11-13" : TOMORROW) ? s : undefined;
 }

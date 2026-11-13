@@ -127,8 +127,10 @@ export function detectCollisions(projects: Project[], school: SchoolItem[]) {
     const hit = school.find((s) => s.date === p.dueDate && s.fixed);
     if (hit) {
       const study = school.find((s) => s.date === p.dueDate && !s.fixed);
+      // +1 day, skipping any other fixed university day and weekends
       const next = fromIso(p.dueDate);
-      next.setUTCDate(next.getUTCDate() + 1);
+      do next.setUTCDate(next.getUTCDate() + 1);
+      while (school.some((s) => s.fixed && s.date === iso(next)) || next.getUTCDay() === 0 || next.getUTCDay() === 6);
       collisions.push({ project: p, school: hit, studyToShift: study, proposedDue: iso(next) });
     }
   }

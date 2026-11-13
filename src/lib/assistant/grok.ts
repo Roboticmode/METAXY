@@ -1,9 +1,10 @@
 import { business, catalog, policies } from "@/lib/agent/data";
+import { NEXT_MONDAY } from "@/lib/agent/planner";
 import { rand } from "@/lib/agent/tools";
 import type { Tab } from "@/lib/agent/types";
 import { ANCHORS, confirmFor, describeAction } from "./describe";
 import type { AssistantResponse, HistoryItem, Snapshot, UiAction } from "./types";
-import { validate } from "./validate";
+import { PACKAGES, SCHOOL_KINDS, validate } from "./validate";
 
 export { validate };
 
@@ -38,6 +39,7 @@ export function resolveReasoningEffort(model: string): "none" | "minimal" | "low
 }
 
 const TABS: Tab[] = ["operations", "whatsapp", "compliance", "opportunities", "crm"];
+const ISO = { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$", description: "ISO date yyyy-mm-dd" };
 
 type ToolSpec = {
   name: string;
@@ -76,6 +78,50 @@ const UI_TOOL_SPECS: ToolSpec[] = [
     { customerId: { type: "string" }, text: { type: "string" } },
     ["customerId", "text"],
   ),
+  spec(
+    "add_client",
+    "Client Desk: add a NEW client / lead to the CRM (internal, runs alone). If packages are given it also drafts the project and quote; the quote is held for approval.",
+    {
+      name: { type: "string", description: "person's full name as the owner gave it" },
+      business: { type: "string" },
+      phone: { type: "string" },
+      packages: { type: "array", items: { type: "string", enum: PACKAGES } },
+      dueDate: ISO,
+    },
+    ["name", "business"],
+  ),
+  spec(
+    "create_project",
+    "Client Desk + Planner + Books: draft a project for an EXISTING client with catalogue deliverables, price and a 50% deposit; Planner picks an honest delivery date. The quote and deposit invoice are held for approval.",
+    { customerId: { type: "string" }, packages: { type: "array", items: { type: "string", enum: PACKAGES }, minItems: 1 }, dueDate: ISO, title: { type: "string" } },
+    ["customerId", "packages"],
+  ),
+  spec(
+    "log_payment",
+    "Books: record that a client paid an invoice from STATE.invoices (the owner says it came in). Marks it paid, adds a CRM reliability note and drafts a thank-you held for approval. Never moves money.",
+    { invoiceId: { type: "string" } },
+    ["invoiceId"],
+  ),
+  spec(
+    "schedule_school_item",
+    "Planner: capture a new university deadline, or a moved one (moveId = id from STATE.school). Drafts the calendar change for approval; collisions are re-checked after.",
+    {
+      moveId: { type: "string" },
+      module: { type: "string", description: "e.g. IS302 Databases" },
+      title: { type: "string" },
+      kind: { type: "string", enum: SCHOOL_KINDS },
+      date: ISO,
+      hours: { type: "number", minimum: 1, maximum: 12 },
+    },
+    ["module", "title", "kind", "date", "hours"],
+  ),
+  spec(
+    "plan_study_blocks",
+    "Planner: propose study blocks before a test/exam (targetId from STATE.school, or omit for the next one), only where client work leaves room. Adding them waits for approval.",
+    { targetId: { type: "string" } },
+  ),
+  spec("capacity_plan", `Planner: one-page week (free vs committed hours, deliveries, collision risks). weekStart is the first day; "next week" is ${NEXT_MONDAY}.`, { weekStart: ISO }, ["weekStart"]),
+  spec("set_exam_mode", "Planner: switch Exam Mode on or off (pauses new intake until 5 Dec). When on, it drafts a pause notice per active client, held for approval.", { active: { type: "boolean" } }, ["active"]),
 ];
 
 const STATE_READER_SPEC = spec(
@@ -114,10 +160,13 @@ const CHAT_COMPLETIONS_TOOLS = UI_TOOL_SPECS.map((t) => ({
 }));
 
 export const assistantSystemPrompt = (snap: Snapshot) => `You are METAXY, the owner's assistant inside the command centre of ${business.name}, run by ${business.owner} (${business.degree}) around her studies. Today is Friday 13 November 2026.
-You talk to the OWNER, not to clients. You can move around the dashboard with tools: switch modules, open chats and compliance tasks, highlight panels, prepare compliance packs, and run the Planner (deadline clashes) and Books (overdue invoices) scans, which only draft decisions.
+You talk to the OWNER, not to clients. You can move around the dashboard with tools: switch modules, open chats and compliance tasks, highlight panels, prepare compliance packs, and run the Planner (deadline clashes) and Books (overdue invoices) scans, which only draft decisions. You can also capture data the owner gives you: new clients and quotes (Client Desk), payments received (Books), school deadlines, study blocks, weekly capacity and Exam Mode (Planner).
 Rules (agents prepare, the owner decides):
 - Do alone: navigate, open, highlight, summarise, explain, prepare, run scans that draft.
 - Ask first (run_automations, decide_approval, send_owner_message): call the tool; the owner sees a confirmation card and must click Confirm. Never say these already happened; say they are ready for the owner to confirm.
+- Data capture (add_client, create_project, log_payment, schedule_school_item, plan_study_blocks, capacity_plan, set_exam_mode) runs alone because it only changes internal records or drafts. Anything external or binding it produces (quote + deposit invoice, thank-you, calendar change, exam notices) is held as an approval for the owner. Say what you drafted and that it waits for their OK.
+- Only use catalogue packages and prices. If a client, invoice, package, module or date is missing or ambiguous, ask one short question instead of guessing.
+- "Paid" means the owner received money: log_payment. Never move money, refund, or pay anyone.
 - Never: write, edit or submit university coursework (assignments, tests, capstone, exams), submit filings, move money, invent prices/dates/policies, share one client's details with another, write text for a client that the owner didn't dictate.
 - Two clients are both called Kagiso (Mokoena of Kasi Brew Coffee, Molefe of Molefe Logistics). If the owner just says "Kagiso", ask which one.
 - If you can't do something with the tools, say "I can't do that yet" plainly.
