@@ -9,13 +9,9 @@
 
 ---
 
-## ⚠️ Open question for the team: which persona is on screen?
+## Demo persona
 
-The archetype docs make **Naledi Studio** (student freelancer) the primary story, but the live app still runs on **Thandi's Bakes** seed data (`src/lib/agent/data.ts`).
-
-- The deck and script work either way. Slide 4 has a persona switch: press `P`, or open `deck/index.html?persona=naledi`.
-- The persona is introduced **on slide 4 (0:40)** and again in the **first line of the demo (1:05)**. Both are marked **[PERSONA]** below.
-- If the seed data is swapped to Naledi Studio before the pitch, the demo click path changes too. Re-run the run-sheet against the new data and rewrite the demo lines (Thandi → Naledi; bakery order → "Can you do it by Friday?").
+The live app runs **Naledi Studio**: a student freelancer with one pool of time and two sets of deadlines (clients and university). She's introduced on **slide 4 (0:40)** and again in the **first line of the demo (1:05)**. Thandi's Bakes appears on slide 4 only as the "any small business" example.
 
 ---
 
@@ -26,7 +22,7 @@ The archetype docs make **Naledi Studio** (student freelancer) the primary story
 | 0:00–0:10 | 1 · Title | 10 | 26 |
 | 0:10–0:22 | 2 · Hook stat | 12 | 30 |
 | 0:22–0:40 | 3 · Three walls | 18 | 45 |
-| 0:40–0:52 | 4 · Meet the owners **[PERSONA]** | 12 | 29 |
+| 0:40–0:52 | 4 · Meet the owners | 12 | 29 |
 | 0:52–1:02 | 5 · The product | 10 | 26 |
 | 1:02–1:05 | 6 · Demo cue → **hand-off** | 3 | 5 |
 | 1:05–2:05 | **LIVE DEMO** (run-sheet) | 60 | ≈ 130 |
@@ -51,14 +47,8 @@ The archetype docs make **Naledi Studio** (student freelancer) the primary story
 ### 0:22–0:40 · Slide 3: Three walls
 > They don't fail for lack of hustle. They hit three walls. One: bots break the moment a customer writes like a real person. Two: going formal (CIPC, SARS, POPIA) feels impossible alone. Three: nobody hands their customers to an AI they can't see.
 
-### 0:40–0:52 · Slide 4: Meet the owners **[PERSONA]**
-*Thandi's Bakes data (current app):*
-> METAXY is one sidekick from launch to run: Lerato starting an agency, Naledi freelancing through university. Today you'll watch it run **Thandi's Bakes, a home bakery in Soweto**.
-
-*If the app has been switched to Naledi Studio data:*
+### 0:40–0:52 · Slide 4: Meet the owners
 > METAXY is one sidekick from launch to run: Lerato starting an agency, and Naledi, freelancing through university. Today you'll watch it run **Naledi Studio, in test week**.
-
-*(In Naledi mode, the deck's middle card shows Thandi's Bakes as the "any small business" example.)*
 
 ### 0:52–1:02 · Slide 5: The product
 > The key idea: the chat is not the interface. Customers stay on WhatsApp. The owner sees every step, every order and every decision, on one screen.
@@ -68,15 +58,15 @@ Exact words, then switch to the app window (`Alt+Tab`):
 > **"Let's watch it work."**
 
 ### 1:05–2:05 · LIVE DEMO (60 s)
-Driver follows [`demo-run-sheet.md`](demo-run-sheet.md). The speaker says these lines while the driver clicks. Times are targets; the scripted engine replays Scenario A in about 6 s.
+Driver follows [`demo-run-sheet.md`](demo-run-sheet.md). The speaker says these lines while the driver clicks. Times are targets; each scripted step takes a few seconds.
 
 | Clock | Action (driver) | Say (speaker) |
 | --- | --- | --- |
-| 1:05 | Click **Scenario A — off-script order** | **[PERSONA]** "A brand-new customer messages **Thandi** on WhatsApp. No greeting, their mother just passed, and they want to pay on delivery. Her policy: a 50% deposit, first orders." |
-| 1:13 | *(steps stream in Agent activity)* | "Watch Agent activity. It noticed the loss, checked Thursday is free, and hit the policy. So it replied with condolences, explained the deposit kindly, and stopped. Exceptions are Thandi's call." |
-| 1:27 | Click **Allow once** | "Thandi allows it, once. The agent confirms Sipho's order and remembers the context. Then it says: *you're ready to formalise.*" |
-| 1:37 | Click **Open checklist** → **Prepare with agent** (CIPC) | "CIPC registration. It checks her documents, pre-fills the application, and gives cost and time. Then it hands it back. The agent never signs or pays." |
-| 1:50 | Click **WhatsApp** tab → **Run today's** | "And the daily grind. Deposit reminder, delivery reminder, a thank-you, a re-order nudge. One customer never opted in to marketing, so under POPIA the agent skips them." |
+| 1:05 | Click **1 · Can you do it by Friday?** | "Naledi is a student who freelances. A new client wants a website by Friday. A normal bot says yes." |
+| 1:12 | *(steps stream in Agent activity)* | "METAXY's agents check both sides of her life. Planner sees a database test on Thursday. Books prices it with a deposit. Client Desk drafts an honest reply, and stops. Nothing goes out without Naledi." |
+| 1:22 | Click **Approve & send** | "One click, and the honest date goes out. And because the studio keeps growing, METAXY says: *you're ready to formalise.*" |
+| 1:32 | Click **Check collisions (Planner)** → **Approve & send** | "Two weeks out, Planner spots a client deadline on the same day as her capstone demo. It proposes the fix and drafts the message to the client. Naledi approves. Collision gone, before it ever happened." |
+| 1:47 | Click **Coursework boundary (Never)** | "And some things it never does. Paid to write an assignment? It declines, politely, every time." |
 | 2:02 | Switch back to the deck, slide 7 | **HAND-BACK, exact words:** **"So what did you just see? One rule."** |
 
 ### 2:05–2:17 · Slide 7: Visible trust
@@ -91,7 +81,7 @@ Driver follows [`demo-run-sheet.md`](demo-run-sheet.md). The speaker says these 
 *Only if the phone panel badge said **scripted** during the demo, you may add "…which is what ran just now." If it said **Grok live**, don't.*
 
 ### 2:39–2:47 · Slide 10: Outcomes
-> Measured today: about five seconds from message to decision card, and zero exceptions without the owner. Our targets for the freelancer build are on the right.
+> In the demo: seconds, not minutes, from message to an approval-ready draft, and zero messages sent without the owner. Our targets for the full build are on the right.
 
 *The ≈5 s figure is the scripted engine on a local run. With Grok live it is slower (several model calls), so say "seconds, not minutes" instead.*
 
@@ -105,7 +95,7 @@ Driver follows [`demo-run-sheet.md`](demo-run-sheet.md). The speaker says these 
 
 ## If you're running long (cut in this order)
 1. **Slide 9** (How it's built): skip the slide and keep one sentence for Q&A. Saves 10 s.
-2. **Demo step "Run today's"**: skip it and go straight to the hand-back. Saves about 12 s. Mention POPIA opt-in on slide 7 instead.
+2. **Demo step "Coursework boundary"**: skip it and go straight to the hand-back. Saves about 15 s. Mention the coursework rule on slide 7 instead.
 3. **Slide 11** (Roadmap): click through silently. Saves 6 s.
 4. **Slide 3**: say only the three wall names. Saves about 8 s.
 
