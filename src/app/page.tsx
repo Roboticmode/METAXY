@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import { MetaxyHero, NIGHT_POSTER, NIGHT_SRC } from "@/components/landing/metaxy-hero";
+import { MetaxyHero } from "@/components/landing/metaxy-hero";
+import { NIGHT_POSTER, NIGHT_SRC } from "@/components/landing/hero-media";
+import { SignInSection } from "@/components/landing/sign-in-section";
 import { LandingNav } from "@/components/landing/landing-nav";
 import { RevealObserver } from "@/components/landing/reveal-observer";
 import { Problem, ProductReveal, TrustStrip } from "@/components/landing/intro-sections";
@@ -39,6 +41,7 @@ export default function LandingPage() {
         <Outcomes />
         <Trust />
         <Faq />
+        <SignInSection />
         <FinalCta videoSrc={NIGHT_SRC} poster={NIGHT_POSTER} />
       </main>
       <Footer />

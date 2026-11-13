@@ -9,25 +9,25 @@ const steps: { code: string; title: string; body: string; vignette: ReactNode }[
   {
     code: "01",
     title: "A message arrives",
-    body: "No greeting, a bereavement, an order, a date and a request to pay on delivery, all in one WhatsApp message at 21:47. Exactly the kind of message that breaks a scripted bot.",
+    body: "A new lead wants a 3-page website “by next Friday”. It lands at 21:47, in test week. Say yes on autopilot and the deadline collides with a database test; say nothing and the lead goes cold.",
     vignette: <MessageVignette />,
   },
   {
     code: "02",
-    title: "The agent reads context and checks your rules",
-    body: "It notices the loss and answers with care. It checks the bake calendar, looks up the customer and tests the request against your deposit policy. Every step shows up in the activity trace.",
+    title: "The agents check both sides of your week",
+    body: "Client Desk triages the message and matches the client. Planner checks the university calendar next to the studio's: Thursday is a term test, so Friday has no hours left. Books prices the job and applies your deposit rule. Every step shows up in the activity trace.",
     vignette: <TraceVignette />,
   },
   {
     code: "03",
-    title: "You approve the exceptions",
-    body: "Routine work just happens. Anything that bends a policy or leaves your business, like a payment exception, waits for you on one card, with the context and the rule it touches.",
+    title: "You approve what goes out",
+    body: "Routine answers just happen. A delivery date, a quote or anything else that commits you waits on one card: an honest counter-offer for Saturday, the exact WhatsApp wording, and the rules it was checked against.",
     vignette: <ApprovalVignette />,
   },
   {
     code: "04",
     title: "The business updates itself",
-    body: "Your decision flows back to the customer. The order is confirmed, the customer's memory is updated, and when your turnover says it's time, METAXY prepares your formalisation checklist.",
+    body: "One tap and the reply goes to the client. Planner holds a provisional studio block until the deposit lands, the test keeps its day, and when turnover says it's time, METAXY prepares your formalisation checklist.",
     vignette: <UpdateVignette />,
   },
 ];
@@ -64,7 +64,7 @@ export function HowItWorks() {
             Agents prepare. You decide.
           </Heading>
           <Lede className="mt-6 text-muted-foreground">
-            One real scenario from the live demo, start to finish. A new customer, a hard moment, a policy that has to bend, and an owner who stays in charge.
+            One real scenario from the live demo, start to finish: &ldquo;Can you do it by Friday?&rdquo; A student freelancer, an urgent lead, a term test in the way, and an owner who stays in charge.
           </Lede>
         </div>
 
@@ -106,7 +106,7 @@ export function HowItWorks() {
               <div className="landing-hairlines absolute inset-0 rounded-3xl border border-border bg-secondary/50" aria-hidden />
               <div className="absolute left-6 top-5 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground" aria-hidden>
                 <span className="landing-live size-1.5 rounded-full bg-accent" />
-                Scenario A · step {steps[active].code} / 04
+                Preset 1 · step {steps[active].code} / 04
               </div>
               {steps.map((s, i) => (
                 <div

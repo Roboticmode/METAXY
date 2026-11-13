@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ArrowRight } from "lucide-react";
+import { useLandingSession } from "./auth-session";
 
 const links = [
   { label: "How it works", href: "#how" },
@@ -16,6 +17,7 @@ const links = [
  */
 export function LandingNav() {
   const [visible, setVisible] = useState(false);
+  const { email } = useLandingSession();
 
   useEffect(() => {
     const marker = document.getElementById("landing-hero-end");
@@ -47,11 +49,19 @@ export function LandingNav() {
             </li>
           ))}
         </ul>
+        {email ? null : (
+          <a
+            href="#signin"
+            className="inline-flex h-10 shrink-0 items-center rounded-full px-3 text-[13px] text-[var(--landing-paper)]/80 transition-colors hover:bg-white/5 hover:text-[var(--landing-paper)]"
+          >
+            Sign in
+          </a>
+        )}
         <a
           href="/dashboard"
-          className="group inline-flex h-10 items-center gap-1.5 rounded-full bg-[var(--landing-paper)] px-4 text-[13px] font-medium text-[var(--landing-ink)] transition-colors hover:bg-white"
+          className="group inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-[var(--landing-paper)] px-4 text-[13px] font-medium text-[var(--landing-ink)] transition-colors hover:bg-white"
         >
-          Try the demo <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden />
+          {email ? "Open workspace" : "Try the demo"} <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden />
         </a>
       </nav>
     </div>

@@ -20,7 +20,7 @@ const modules: {
     id: "operations",
     code: "M-01",
     name: "Operations",
-    line: "Approvals, orders, payments and every step the agent took, on one board. The first thing you open in the morning.",
+    line: "Approvals, projects, invoices and the shared university and studio calendar on one board, with every step the agents took. The first thing you open in the morning.",
     art: "board",
     span: "lg:col-span-4",
     aspect: "16 / 9",
@@ -29,7 +29,7 @@ const modules: {
     id: "whatsapp",
     code: "M-02",
     name: "WhatsApp",
-    line: "Answers FAQs around the clock, takes orders and sends the reminders you switch on.",
+    line: "Answers rates and banking questions around the clock. Enquiries, scope changes and reminders are drafted for your approval.",
     art: "chat",
     span: "lg:col-span-2",
     aspect: "4 / 3",
@@ -38,7 +38,7 @@ const modules: {
     id: "compliance",
     code: "M-03",
     name: "Compliance",
-    line: "CIPC, SARS and VAT readiness as a plain-language checklist, with the official source for every step.",
+    line: "CIPC, SARS, the VAT threshold and POPIA as a plain-language checklist, with the official source for every step.",
     art: "checklist",
     span: "lg:col-span-2",
     aspect: "4 / 3",
@@ -47,7 +47,7 @@ const modules: {
     id: "opportunities",
     code: "M-04",
     name: "Opportunities",
-    line: "Nearby buyers and suppliers, ranked by fit and distance, with the outreach drafted.",
+    line: "Nearby businesses that need design work, ranked by fit and distance, with the outreach drafted.",
     art: "radar",
     span: "lg:col-span-2",
     aspect: "4 / 3",
@@ -56,7 +56,7 @@ const modules: {
     id: "crm",
     code: "M-05",
     name: "CRM & Retention",
-    line: "Remembers allergies, preferences and who pays on time. Only nudges customers who opted in.",
+    line: "Remembers agreed scope, preferences and who pays on time, and never mixes up two clients with similar names.",
     art: "memory",
     span: "lg:col-span-2",
     aspect: "4 / 3",
@@ -139,6 +139,7 @@ const personas = [
     name: "Lerato",
     role: "Graduate founder, starting a small tech agency",
     quote: "I know how to build it. I don't know how to run a business.",
+    badge: "Companion archetype",
     does: [
       "Turns “where do I start?” into a one-page concept and launch plan",
       "Builds a CIPC & SARS checklist, each step with its official source",
@@ -152,11 +153,13 @@ const personas = [
     name: "Naledi Studio",
     role: "Student freelancer: design & web, alongside university",
     quote: "One pool of time. Two sets of deadlines.",
+    badge: "In the live demo",
     does: [
-      "Spots a client delivery colliding with a capstone milestone, early",
-      "Answers “can you do it by Friday?” with a date her week can keep",
-      "Drafts friendly reminders for overdue invoices",
-      "Flags “just a few more logo variations” as out of scope and prices it",
+      "Spots a client website milestone landing on capstone demo day, early",
+      "Answers “can you do it by Friday?” with a date her test week can keep",
+      "Drafts polite EFT reminders for overdue invoices, for her approval",
+      "Flags “3 extra logo variations” as out of scope and drafts an add-on quote",
+      "Never writes, edits or submits her coursework, even when asked",
     ],
   },
 ];
@@ -188,7 +191,7 @@ export function Personas() {
             <article key={p.name} {...reveal(i)} className="flex flex-col rounded-3xl border border-border bg-card p-7 sm:p-10">
               <div className="flex items-center justify-between gap-4">
                 <span className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">{p.stage}</span>
-                <span className="rounded-full border border-border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">Synthetic archetype</span>
+                <span className="rounded-full border border-border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground">{p.badge}</span>
               </div>
               <div className="mt-8 flex items-center gap-4">
                 <span aria-hidden className="grid size-14 shrink-0 place-items-center rounded-full bg-foreground font-mono text-sm font-medium text-background">
@@ -218,7 +221,7 @@ export function Personas() {
           &hellip;and any small business that lives on WhatsApp: <span className="text-muted-foreground">bakers, plumbers, spaza shops, salons.</span>
         </p>
         <p className="mx-auto mt-3 max-w-2xl text-center text-sm text-muted-foreground">
-          The live demo runs on a home bakery today, Thandi&rsquo;s Bakes in Soweto. The same engine takes any business&rsquo;s rules and data.
+          All names and figures are synthetic. The live demo runs as Naledi Studio; the same engine first ran Thandi&rsquo;s Bakes, a home bakery in Soweto, with nothing but different rules and data.
         </p>
       </Container>
     </section>
@@ -230,7 +233,7 @@ export function Personas() {
 const outcomes = [
   { value: "100%", label: "of seeded deadline collisions caught before the day" },
   { value: "< 60 s", label: "from incoming message to an approval-ready draft" },
-  { value: "0", label: "policy exceptions granted without the owner's tap" },
+  { value: "0", label: "delivery dates or quotes sent without the owner's approval" },
   { value: "100%", label: "of overdue invoices with a reminder drafted in one run" },
 ];
 

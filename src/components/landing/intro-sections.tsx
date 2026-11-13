@@ -37,7 +37,7 @@ const walls = [
     code: "W-01",
     icon: MessageSquareWarning,
     title: "Rigid bots break on real life",
-    body: "Customers skip the greeting, mention a funeral, ask for a strange date and want to pay on delivery, all in one message. Scripted bots fall over. Owners end up answering everything at 22:00.",
+    body: "Clients skip the greeting, want it “by Friday”, slip in “just a few more variations”, or mention a funeral and ask to pay later. Scripted bots fall over. Owners end up answering everything at 22:00.",
   },
   {
     code: "W-02",
@@ -116,14 +116,14 @@ export function Problem() {
 /* ── Product reveal: the command centre, annotated ─────────────────────────────── */
 
 const callouts = [
-  // x / y: pin position (top-left corner of each panel) as a % of the screenshot (public/screenshots/command-centre-approved.png)
-  { n: 1, title: "WhatsApp mirror", body: "Every customer chat, live, right beside the work it creates.", x: 77.8, y: 45 },
-  { n: 2, title: "Agent activity", body: "Each step the agent took, which rule it checked and why it paused.", x: 53.4, y: 7.2 },
-  { n: 3, title: "Approval card", body: "Exceptions wait for you. One tap to allow once, or refuse and keep the policy.", x: 16.7, y: 27.3 },
-  { n: 4, title: "Compliance nudge", body: "When the business is ready to formalise, METAXY says so and prepares the steps.", x: 16.7, y: 7.2 },
+  // x / y: pin position (top-left corner of each panel) as a % of the screenshot (public/screenshots/command-centre.png)
+  { n: 1, title: "WhatsApp mirror", body: "Every client chat, live, right beside the work it creates.", x: 77.8, y: 45 },
+  { n: 2, title: "Agent activity", body: "Client Desk, Planner and Books: each step, which rule they checked and why they paused.", x: 53.4, y: 7.2 },
+  { n: 3, title: "Approval card", body: "Dates, quotes and anything binding wait for you, with the exact wording. Approve & send, or hold.", x: 17.6, y: 27.3 },
+  { n: 4, title: "Shared calendar", body: "University and studio commitments side by side, so collisions show up before the day.", x: 16.7, y: 65.6 },
 ] as const;
 
-export const COMMAND_CENTRE_SHOT = "/screenshots/command-centre-approved.png";
+export const COMMAND_CENTRE_SHOT = "/screenshots/command-centre.png";
 
 export function ProductReveal({ src = COMMAND_CENTRE_SHOT }: { src?: string }) {
   return (
@@ -148,7 +148,7 @@ export function ProductReveal({ src = COMMAND_CENTRE_SHOT }: { src?: string }) {
             <ScreenshotFrame
               label="Command centre"
               src={src}
-              alt="The METAXY command centre after Scenario A: a compliance nudge, the allowed payment exception, the agent's activity trace and the mirrored WhatsApp conversation"
+              alt="The METAXY command centre for Naledi Studio: a held reply proposing Saturday instead of a test-week Friday, the agents' activity trace, the shared university and studio calendar, and the mirrored WhatsApp chat"
               sizes="(min-width: 1280px) 1160px, 100vw"
               priority={false}
               className="border-white/10"

@@ -1,22 +1,16 @@
+"use client";
+
 import ElsewhereHero from "@/components/ui/elsewhere-hero";
+import { ctaLabel, useLandingSession } from "./auth-session";
+import { DAY_POSTER, DAY_SRC, NIGHT_POSTER, NIGHT_SRC } from "./hero-media";
 
 /**
- * METAXY landing hero — ElsewhereHero configured for our story.
- * Day/night = the owner's day job vs. the business after hours (metaxý: "in between").
- *
- * TODO(landing): the clips below are the component's placeholder footage. Swap in South African
- * day/night footage (e.g. a Joburg street or a township spaza by day and at night): put the files in
- * `public/hero/day.mp4` / `public/hero/night.mp4`, change DAY_SRC / NIGHT_SRC, and re-capture the
- * posters (`public/hero/day.jpg` / `night.jpg`, a still from ~1 s into each clip). Keep each clip
- * short (≤ 10 s, ≤ 4 MB) so the page loads on mobile data. Serving from `public/` also keeps the hero
- * working on bad venue Wi-Fi.
+ * METAXY landing hero: ElsewhereHero configured for our story.
+ * Day/night = the owner's day job (or lectures) vs. the business after hours (metaxý: "in between").
+ * Footage lives in ./hero-media.ts (see the TODO there about South African clips).
  */
-export const DAY_SRC = "https://cdn.21st.dev/assets/mirror/a6/a639af57ee941fdd518c604efb043501ad0e815dcce9f7efba850998bafa3453.mp4";
-export const NIGHT_SRC = "https://cdn.21st.dev/assets/mirror/4b/4badf32b0bc920a2fd1b066182eee89e98d8615f680e01fb19ff62fb56e86872.mp4";
-export const DAY_POSTER = "/hero/day.jpg";
-export const NIGHT_POSTER = "/hero/night.jpg";
-
 export function MetaxyHero() {
+  const { email } = useLandingSession();
   return (
     <ElsewhereHero
       daySrc={DAY_SRC}
@@ -31,14 +25,15 @@ export function MetaxyHero() {
         { label: "Modules", href: "#modules" },
         { label: "Who it's for", href: "#who" },
         { label: "Trust", href: "#trust" },
+        ...(email ? [] : [{ label: "Sign in", href: "#signin" }]),
       ]}
-      navCta={{ label: "Open dashboard", href: "/dashboard" }}
+      navCta={email ? { label: "Open workspace", href: "/dashboard" } : { label: "Open dashboard", href: "/dashboard" }}
       headline="From hustle to formal business."
-      subline="An AI agent that answers your customers, chases payments and walks you through CIPC and SARS — with a command centre where you see and approve everything it does."
-      primaryCta={{ label: "Try the live demo", href: "/dashboard" }}
+      subline="An AI agent that answers your clients, chases payments and walks you through CIPC and SARS, with a command centre where you see and approve everything it does."
+      primaryCta={{ label: ctaLabel(email), href: "/dashboard" }}
       secondaryCta={{ label: "How it works", href: "#how" }}
       sound={false}
-      cycleCaption={{ day: "By day: the 9-to-5, lectures, the day job", night: "After hours: the business — METAXY keeps it running" }}
+      cycleCaption={{ day: "By day: lectures, the 9-to-5, the day job", night: "After hours: the business, and METAXY keeps it running" }}
       style={{ fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif" }}
     />
   );

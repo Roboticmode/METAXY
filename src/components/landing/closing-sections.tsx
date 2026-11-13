@@ -1,6 +1,7 @@
 import { ArrowRight, ArrowUpRight, Ban, Check, Hand, Plus } from "lucide-react";
 import { Container, CtaLink, Eyebrow, Heading, Lede, reveal } from "./primitives";
 import { AmbientVideo } from "./ambient-video";
+import { SessionCta } from "./sign-in-section";
 
 /* ── Trust & boundaries ────────────────────────────────────────────────────────── */
 
@@ -12,12 +13,12 @@ const columns = [
     tone: "text-accent",
     note: "Internal, reversible, inside your rules",
     items: [
-      "Read and summarise every message",
-      "Answer FAQs from your brief: prices, hours, banking details",
-      "Check the calendar, the customer's history and your policies",
-      "Draft orders, replies and quotes",
-      "Update customer memory",
-      "Run the automations you switched on",
+      "Read and triage every message",
+      "Answer FAQs from your brief: rates, banking details, project status",
+      "Calculate capacity across your university and studio calendars",
+      "Draft replies, quotes and payment reminders",
+      "Flag requests that go beyond the agreed scope",
+      "Update client memory",
     ],
   },
   {
@@ -25,12 +26,12 @@ const columns = [
     title: "Ask first",
     icon: Hand,
     tone: "text-[oklch(0.5_0.15_45)]",
-    note: "Anything that bends a rule or binds you",
+    note: "Anything external or binding",
     items: [
-      "Grant a policy exception, like pay-on-delivery for a new customer",
+      "Promise a delivery date or send a quote",
+      "Send an invoice, a reminder or a change quote",
+      "Move a block in your calendar",
       "Reply to a complaint (it hands the chat to you)",
-      "Send an invoice or change an amount",
-      "Move a commitment in your calendar",
       "Start a formal step like CIPC registration",
     ],
   },
@@ -41,11 +42,11 @@ const columns = [
     tone: "text-destructive",
     note: "Hard out-of-bounds",
     items: [
+      "Write, edit or submit university coursework",
       "Move money or make a payment",
       "Sign or submit a filing on your behalf",
-      "Send promotions to customers who didn't opt in",
-      "Share one customer's details with another",
-      "Guess an answer it doesn't have",
+      "Send promotions to clients who didn't opt in",
+      "Share one client's details with another",
     ],
   },
 ];
@@ -97,9 +98,9 @@ export function Trust() {
 
         <ul className="mt-6 grid gap-4 md:grid-cols-3">
           {[
-            ["Agents prepare, you decide.", "Nothing that bends a policy or commits you happens without an approval card showing the exact change."],
+            ["Agents prepare, you decide.", "Nothing that commits you, a date, a quote or an invoice, goes out without an approval card showing the exact wording."],
             ["Guidance, not legal or tax advice.", "Compliance steps link the official source (CIPC, SARS). Confirm with the authority or a professional."],
-            ["Synthetic data only.", "The demo's customers, phone numbers, amounts and banking details are all invented."],
+            ["Synthetic data only.", "The demo's clients, phone numbers, amounts, timetables and banking details are all invented."],
           ].map(([t, b], i) => (
             <li key={t} {...reveal(i, "fade")} className="rounded-2xl border border-border bg-secondary/50 p-6">
               <p className="font-semibold">{t}</p>
@@ -117,11 +118,15 @@ export function Trust() {
 const faqs = [
   {
     q: "Is METAXY a chatbot?",
-    a: "No. A chatbot lives inside the chat. METAXY is an agent that works in WhatsApp plus a command centre where you see what it did, why it did it, and what's waiting for you. The chat thread is where customers talk; the command centre is where you run the business.",
+    a: "No. A chatbot lives inside the chat. METAXY is a small team of agents (Client Desk, Planner and Books) working in WhatsApp, plus a command centre where you see what they did, why, and what's waiting for you. The chat thread is where clients talk; the command centre is where you run the business.",
   },
   {
     q: "Does it send messages on its own?",
-    a: "Routine ones, yes, within the rules and automations you set: answering a price question from your brief, confirming an order that fits your policies, a deposit reminder you switched on. Anything that bends a policy, like letting a new customer pay on delivery, waits for your approval. Complaints and questions it can't answer are handed to you instead of guessed.",
+    a: "Only routine answers from your brief: your rates, your banking details, where a project stands. Anything that commits you, like a delivery date, a quote, a change quote or a payment reminder, is drafted and waits on an approval card. Complaints are handed to you instead of guessed, and requests to do coursework are politely declined.",
+  },
+  {
+    q: "Do I need an account to try it?",
+    a: "No. The live demo runs without sign-up. Owners can sign in (email and password, via Supabase Auth) to keep a workspace session; when sign-in isn't configured, the demo works exactly the same.",
   },
   {
     q: "Do I need to be a registered business?",
@@ -129,7 +134,7 @@ const faqs = [
   },
   {
     q: "What about POPIA?",
-    a: "Marketing messages only go to customers who opted in. In the demo, the re-order nudge skips anyone without opt-in and says why. Customer details stay with the customer they belong to. The demo itself uses only synthetic data.",
+    a: "Marketing messages only go to clients who opted in. In the demo, the dormant-client check-in skips anyone without opt-in and says why (POPIA s69). Client details stay with the client they belong to. The demo itself uses only synthetic data.",
   },
   {
     q: "Does it work offline, or without Grok?",
@@ -184,7 +189,7 @@ export function FinalCta({ videoSrc, poster }: { videoSrc: string; poster?: stri
       <Container className="flex min-h-[88svh] flex-col justify-center py-28 sm:py-36">
         <div className="grid gap-4 font-mono text-[11px] uppercase tracking-[0.14em] text-[var(--landing-paper)]/70 sm:grid-cols-2 sm:gap-8" {...reveal(0, "fade")}>
           <p className="flex items-center gap-3 border-t border-white/15 pt-4">
-            <span className="text-[var(--landing-paper)]">09:00</span> By day: the 9-to-5, lectures, the day job
+            <span className="text-[var(--landing-paper)]">09:00</span> By day: lectures, the 9-to-5, the day job
           </p>
           <p className="flex items-center gap-3 border-t border-accent/50 pt-4">
             <span className="text-accent">21:47</span> After hours: the business, handled
@@ -194,12 +199,10 @@ export function FinalCta({ videoSrc, poster }: { videoSrc: string; poster?: stri
           Run the business in between.
         </h2>
         <Lede className="mt-8 max-w-[46ch] text-[var(--landing-paper)]/80">
-          Send the off-script message, watch the agent think, make the call, and see the whole business respond. It takes about two minutes.
+          Send &ldquo;Can you do it by Friday?&rdquo;, watch the agents check both calendars, make the call, and see the whole studio respond. It takes about two minutes.
         </Lede>
         <div className="mt-10 flex flex-wrap items-center gap-3" {...reveal(2, "fade")}>
-          <CtaLink href="/dashboard" tone="light">
-            Try the live demo <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
-          </CtaLink>
+          <SessionCta />
           <CtaLink href="#how" tone="ghost-light">
             See how it works
           </CtaLink>
