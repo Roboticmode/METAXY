@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { ArrowUpRight, Check, Circle, Clock, FileCheck2, FileWarning, Lock, Minus, Sparkles } from "lucide-react";
 import { TURNOVER } from "@/lib/agent/data";
 import { rand } from "@/lib/agent/tools";
@@ -20,17 +19,18 @@ const statusMeta: Record<ComplianceStatus, { label: string; tone: "ok" | "warn" 
 const priorityRank = { high: 0, medium: 1, low: 2 };
 
 export function ComplianceBoard() {
-  const { state } = useMetaxy();
+  const { state, openComplianceTask } = useMetaxy();
   const status = (id: string) => state.compliance[id]?.status ?? "todo";
   const nudged = state.nudges.length > 0;
 
   const applicable = complianceTasks.filter((t) => status(t.id) !== "na");
   const done = applicable.filter((t) => status(t.id) === "done").length;
   const nextUp = [...applicable].filter((t) => status(t.id) === "todo" && !blockedBy(t, status)).sort((a, b) => priorityRank[a.priority] - priorityRank[b.priority])[0];
-  const [selected, setSelectedId] = useState<string>("cipc");
+  // The selected task lives in the store so the agent console can open a specific one.
+  const selected = state.ui.complianceTask;
   // In the single-column layout (< 1280 px) the task detail sits below the checklist, so bring it into view.
   const setSelected = (id: string) => {
-    setSelectedId(id);
+    openComplianceTask(id);
     if (typeof window === "undefined" || window.matchMedia("(min-width: 1280px)").matches) return;
     const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     requestAnimationFrame(() => document.getElementById("comp-task")?.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "start" }));

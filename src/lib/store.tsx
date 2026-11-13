@@ -2,13 +2,39 @@
 
 import { createContext, useCallback, useContext, useMemo, useReducer, useRef, type ReactNode } from "react";
 import { initialCustomers, initialSchoolItems, newCustomer } from "@/lib/agent/data";
+import { detectCollisions } from "@/lib/agent/tools";
 import type { AgentEvent, AgentResponse, AgentRole, Approval, ComplianceNudge, ComplianceStatus, Customer, Invoice, Project, SchoolItem, Tab, TraceStatus } from "@/lib/agent/types";
+import { confirmFor, describeAction, taskLabel } from "@/lib/assistant/describe";
+import { route } from "@/lib/assistant/router";
+import { isAskFirst, type AssistantResponse, type ConfirmCard, type HistoryItem, type Snapshot, type UiAction } from "@/lib/assistant/types";
 import { complianceTasks, currentVault } from "@/lib/compliance/data";
 import { defaultAutomations, seedInvoices, seedProjects, seedThreads } from "@/lib/whatsapp/data";
 
 export type ChatMsg = { id: number; customerId: string; from: "customer" | "agent" | "owner" | "system"; text: string; at: string; automation?: string };
 export type TraceItem = { id: number; agent?: AgentRole; tool: string; label: string; detail: string; status: TraceStatus; at: string };
 export type ComplianceState = { status: ComplianceStatus; prepared?: string[]; missing?: string[] };
+
+/** Layout + "where the owner is looking". Lives in the store so the agent console can drive it. */
+export type UiState = {
+  leftOpen: boolean;
+  rightOpen: boolean;
+  /** anchor id currently highlighted (cleared after 2 s) */
+  focus: string | null;
+  /** compliance task open in the detail panel */
+  complianceTask: string;
+};
+
+export type ConfirmStatus = "pending" | "running" | "confirmed" | "cancelled";
+
+export type AssistantMsg =
+  | { id: number; role: "user"; text: string }
+  | { id: number; role: "assistant"; text: string; engine?: AssistantResponse["engine"] }
+  /** a UI action that actually ran ("→ Opened Compliance › CIPC") */
+  | { id: number; role: "step"; text: string; tone: "ok" | "warn" }
+  | { id: number; role: "confirm"; card: ConfirmCard; status: ConfirmStatus };
+
+type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
+type AssistantMsgInput = DistributiveOmit<AssistantMsg, "id">;
 
 type State = {
   tab: Tab;
@@ -35,6 +61,9 @@ type State = {
   busy: boolean;
   engine: "mock" | "grok" | null;
   unseen: Partial<Record<Tab, number>>;
+  ui: UiState;
+  /** the owner's conversation with METAXY (agent console) */
+  assistant: { messages: AssistantMsg[]; busy: boolean };
 };
 
 let seq = 1;
@@ -64,6 +93,8 @@ const initialState = (): State => ({
   busy: false,
   engine: null,
   unseen: {},
+  ui: { leftOpen: true, rightOpen: true, focus: null, complianceTask: "cipc" },
+  assistant: { messages: [], busy: false },
 });
 
 type Action =
@@ -78,7 +109,11 @@ type Action =
   | { type: "preparing"; id: string | null }
   | { type: "busy"; busy: boolean; engine?: "mock" | "grok" }
   | { type: "event"; event: AgentEvent; chat: string }
-  | { type: "reset" };
+  | { type: "reset" }
+  | { type: "ui"; patch: Partial<UiState> }
+  | { type: "assistant_msg"; msg: AssistantMsgInput }
+  | { type: "assistant_busy"; busy: boolean }
+  | { type: "confirm_status"; id: number; status: ConfirmStatus };
 
 function bump(s: State, tab: Tab): State["unseen"] {
   return s.tab === tab ? s.unseen : { ...s.unseen, [tab]: (s.unseen[tab] ?? 0) + 1 };
@@ -117,7 +152,18 @@ function reducer(s: State, a: Action): State {
     case "compliance_set":
       return { ...s, compliance: { ...s.compliance, [a.id]: { ...s.compliance[a.id], status: a.status } } };
     case "reset":
-      return { ...initialState(), tab: s.tab, engine: s.engine };
+      return { ...initialState(), tab: s.tab, engine: s.engine, ui: s.ui, assistant: s.assistant };
+    case "ui":
+      return { ...s, ui: { ...s.ui, ...a.patch } };
+    case "assistant_msg":
+      return { ...s, assistant: { ...s.assistant, messages: [...s.assistant.messages, { ...a.msg, id: seq++ } as AssistantMsg] } };
+    case "assistant_busy":
+      return { ...s, assistant: { ...s.assistant, busy: a.busy } };
+    case "confirm_status":
+      return {
+        ...s,
+        assistant: { ...s.assistant, messages: s.assistant.messages.map((m) => (m.id === a.id && m.role === "confirm" ? { ...m, status: a.status } : m)) },
+      };
     case "event": {
       const e = a.event;
       switch (e.type) {
@@ -171,8 +217,61 @@ function reducer(s: State, a: Action): State {
   }
 }
 
+/** Compact view of the dashboard the assistant reasons over. All synthetic. */
+export function buildSnapshot(s: State): Snapshot {
+  const customers = s.customers.some((c) => c.id === newCustomer.id) ? s.customers : [...s.customers, newCustomer];
+  const nameOf = (id: string) => customers.find((c) => c.id === id)?.name ?? id;
+  return {
+    tab: s.tab,
+    activeChat: s.activeChat,
+    complianceTask: s.ui.complianceTask,
+    examMode: s.examMode,
+    customers: customers.map((c) => ({ id: c.id, name: c.name, business: c.business, optIn: !!c.optIn })),
+    approvals: s.approvals
+      .filter((a) => a.status === "pending")
+      .map((a) => ({
+        id: a.id,
+        kind: a.kind,
+        targetId: a.targetId,
+        customerId: a.customerId ?? "",
+        customerName: a.customerId ? nameOf(a.customerId) : "",
+        title: a.title,
+        detail: a.detail,
+        draftMessage: a.draftMessage,
+      })),
+    handoffs: Object.entries(s.handoffs).map(([customerId, reason]) => ({ customerId, name: nameOf(customerId), reason })),
+    unread: Object.values(s.unread).reduce((n, x) => n + x, 0),
+    projects: s.projects.map((p) => ({
+      id: p.id,
+      customerId: p.customerId,
+      title: p.title,
+      status: p.status,
+      payment: p.payment,
+      dueDate: p.dueDate,
+      total: p.total,
+      deposit: p.deposit,
+      scopeFlag: p.scopeFlag,
+    })),
+    invoices: s.invoices.map((i) => ({ id: i.id, customerId: i.customerId, amount: i.amount, dueDate: i.dueDate, daysOverdue: i.daysOverdue, status: i.status })),
+    collisions: detectCollisions(s.projects, s.school).map((c) => ({ projectId: c.project.id, customerId: c.project.customerId, schoolTitle: c.school.title, date: c.school.date, proposedDue: c.proposedDue })),
+    compliance: complianceTasks.map((t) => ({ id: t.id, label: t.label, status: s.compliance[t.id]?.status ?? t.status, dependsOn: t.dependsOn })),
+    automations: Object.entries(s.automations)
+      .filter(([, on]) => on)
+      .map(([id]) => id),
+  };
+}
+
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const delayFor = (e: AgentEvent) => (e.type === "reply" ? 900 : e.type === "trace" ? 550 : 380);
+const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
+/** let React commit pending dispatches so stateRef is current */
+const settle = async () => {
+  await sleep(30);
+  await nextFrame();
+};
+
+/** Tailwind classes for the 2 s highlight ring (written out in full so Tailwind generates them). */
+const FOCUS_RING = ["ring-2", "ring-accent", "ring-offset-2", "ring-offset-background", "transition-shadow"];
 
 type Ctx = {
   state: State;
@@ -190,6 +289,15 @@ type Ctx = {
   setComplianceStatus: (taskId: string, status: ComplianceStatus) => void;
   decide: (approvalId: string, decision: "allow" | "refuse") => Promise<void>;
   reset: () => void;
+  /* layout (driven by the owner or by the agent console) */
+  setColumns: (cols: { left?: boolean; right?: boolean }) => void;
+  /** scroll to a panel and ring it for 2 s; resolves false (and does nothing) if the panel isn't on screen */
+  focusAnchor: (anchorId: string) => Promise<boolean>;
+  openComplianceTask: (taskId: string) => void;
+  /* agent console */
+  askAssistant: (text: string) => Promise<void>;
+  confirmAction: (messageId: number) => Promise<void>;
+  cancelAction: (messageId: number) => void;
 };
 
 const StoreCtx = createContext<Ctx | null>(null);
@@ -198,6 +306,7 @@ export function MetaxyProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
   const stateRef = useRef(state);
   stateRef.current = state;
+  const focusTimer = useRef<{ el: HTMLElement; timer: ReturnType<typeof setTimeout> } | null>(null);
 
   /** Call the agent and replay its events with small delays so the owner can follow along. */
   const play = useCallback(async (body: unknown, chat: string) => {
@@ -217,80 +326,276 @@ export function MetaxyProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const enabledAutomations = () =>
-    Object.entries(stateRef.current.automations)
-      .filter(([, on]) => on)
-      .map(([id]) => id);
+  const ops = useMemo(() => {
+    const enabledAutomations = () =>
+      Object.entries(stateRef.current.automations)
+        .filter(([, on]) => on)
+        .map(([id]) => id);
 
-  const value = useMemo<Ctx>(
-    () => ({
-      state,
-      setTab: (tab) => dispatch({ type: "tab", tab }),
-      reset: () => dispatch({ type: "reset" }),
-      openChat: (customerId) => dispatch({ type: "open_chat", customerId }),
-      togglePause: (customerId) => dispatch({ type: "toggle_pause", customerId }),
-      toggleAutomation: (id) => dispatch({ type: "toggle_automation", id }),
-      setComplianceStatus: (id, status) => dispatch({ type: "compliance_set", id, status }),
-      sendOwnerMessage: (text) => dispatch({ type: "owner_says", text }),
-      sendCustomerMessage: async (text, customerIdOverride) => {
-        const s = stateRef.current;
-        const chat = customerIdOverride ?? s.activeChat;
-        dispatch({ type: "customer_says", text, customerId: chat });
-        if (s.paused[chat]) {
-          dispatch({
-            type: "event",
-            chat,
-            event: { type: "trace", agent: "Client Desk", tool: "agent_paused", label: "Agent paused", detail: "You're handling this chat — the agent won't reply", status: "warn" },
-          });
-          return;
-        }
-        await play(
-          {
-            kind: "customer_message",
-            text,
-            customerId: chat,
-            projects: s.projects,
-            enabled: enabledAutomations(),
-            examMode: s.examMode,
-          },
+    const setTab = (tab: Tab) => dispatch({ type: "tab", tab });
+    const openChat = (customerId: string) => dispatch({ type: "open_chat", customerId });
+    const sendOwnerMessage = (text: string) => dispatch({ type: "owner_says", text });
+
+    const sendCustomerMessage = async (text: string, customerIdOverride?: string) => {
+      const s = stateRef.current;
+      const chat = customerIdOverride ?? s.activeChat;
+      dispatch({ type: "customer_says", text, customerId: chat });
+      if (s.paused[chat]) {
+        dispatch({
+          type: "event",
           chat,
-        );
-      },
-      checkCollisions: async () => {
-        const s = stateRef.current;
-        await play({ kind: "check_collisions", projects: s.projects, school: s.school }, s.activeChat);
-      },
-      chaseOverdue: async () => {
-        const s = stateRef.current;
-        await play({ kind: "chase_overdue", invoices: s.invoices }, s.activeChat);
-      },
-      toggleExamMode: async () => {
-        const s = stateRef.current;
-        const next = !s.examMode;
-        dispatch({ type: "set_exam_mode", active: next });
-        await play({ kind: "toggle_exam_mode", active: next, projects: s.projects }, s.activeChat);
-      },
-      runAutomations: async () => {
-        const s = stateRef.current;
-        await play({ kind: "run_automations", enabled: enabledAutomations(), projects: s.projects, invoices: s.invoices }, s.activeChat);
-      },
-      prepareCompliance: async (taskId) => {
-        dispatch({ type: "preparing", id: taskId });
-        const s = stateRef.current;
-        const docs = currentVault((id) => s.compliance[id]?.status === "done");
-        await play({ kind: "compliance_prepare", taskId, vault: docs }, s.activeChat);
-        dispatch({ type: "preparing", id: null });
-      },
-      decide: async (approvalId, decision) => {
-        const s = stateRef.current;
-        const approval = s.approvals.find((a) => a.id === approvalId);
-        if (!approval) return;
-        const project = s.projects.find((p) => p.id === approval.targetId);
-        await play({ kind: "approval", decision, approval, project }, approval.customerId ?? s.activeChat);
-      },
-    }),
-    [state, play],
-  );
+          event: { type: "trace", agent: "Client Desk", tool: "agent_paused", label: "Agent paused", detail: "You're handling this chat — the agent won't reply", status: "warn" },
+        });
+        return;
+      }
+      await play(
+        {
+          kind: "customer_message",
+          text,
+          customerId: chat,
+          projects: s.projects,
+          enabled: enabledAutomations(),
+          examMode: s.examMode,
+        },
+        chat,
+      );
+    };
+    const checkCollisions = async () => {
+      const s = stateRef.current;
+      await play({ kind: "check_collisions", projects: s.projects, school: s.school }, s.activeChat);
+    };
+    const chaseOverdue = async () => {
+      const s = stateRef.current;
+      await play({ kind: "chase_overdue", invoices: s.invoices }, s.activeChat);
+    };
+    const toggleExamMode = async () => {
+      const s = stateRef.current;
+      const next = !s.examMode;
+      dispatch({ type: "set_exam_mode", active: next });
+      await play({ kind: "toggle_exam_mode", active: next, projects: s.projects }, s.activeChat);
+    };
+    const runAutomations = async () => {
+      const s = stateRef.current;
+      await play({ kind: "run_automations", enabled: enabledAutomations(), projects: s.projects, invoices: s.invoices }, s.activeChat);
+    };
+    const prepareCompliance = async (taskId: string) => {
+      dispatch({ type: "preparing", id: taskId });
+      const s = stateRef.current;
+      const docs = currentVault((id) => s.compliance[id]?.status === "done");
+      await play({ kind: "compliance_prepare", taskId, vault: docs }, s.activeChat);
+      dispatch({ type: "preparing", id: null });
+    };
+    const decide = async (approvalId: string, decision: "allow" | "refuse") => {
+      const s = stateRef.current;
+      const approval = s.approvals.find((a) => a.id === approvalId);
+      if (!approval) return;
+      const project = s.projects.find((p) => p.id === approval.targetId);
+      await play({ kind: "approval", decision, approval, project }, approval.customerId ?? s.activeChat);
+    };
+
+    const setColumns = (cols: { left?: boolean; right?: boolean }) =>
+      dispatch({ type: "ui", patch: { ...(cols.left !== undefined ? { leftOpen: cols.left } : {}), ...(cols.right !== undefined ? { rightOpen: cols.right } : {}) } });
+    const openComplianceTask = (taskId: string) => dispatch({ type: "ui", patch: { complianceTask: taskId } });
+
+    const focusAnchor = async (anchorId: string) => {
+      // let a tab switch render first
+      await nextFrame();
+      await nextFrame();
+      const el = typeof document !== "undefined" ? document.getElementById(anchorId) : null;
+      if (!el) return false;
+      if (focusTimer.current) {
+        clearTimeout(focusTimer.current.timer);
+        focusTimer.current.el.classList.remove(...FOCUS_RING);
+      }
+      el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      el.classList.add(...FOCUS_RING);
+      dispatch({ type: "ui", patch: { focus: anchorId } });
+      focusTimer.current = {
+        el,
+        timer: setTimeout(() => {
+          el.classList.remove(...FOCUS_RING);
+          focusTimer.current = null;
+          if (stateRef.current.ui.focus === anchorId) dispatch({ type: "ui", patch: { focus: null } });
+        }, 2000),
+      };
+      return true;
+    };
+
+    /* ----------------------------- agent console ----------------------------- */
+
+    const say = (msg: AssistantMsgInput) => dispatch({ type: "assistant_msg", msg });
+    const step = (text: string, tone: "ok" | "warn" = "ok") => say({ role: "step", text, tone });
+    const pendingIds = () => new Set(stateRef.current.approvals.filter((a) => a.status === "pending").map((a) => a.id));
+
+    /** After a scan or a simulated message drafts new approvals, show each one as a confirm card. Nothing runs without Confirm. */
+    const offerNewApprovals = (before: Set<string>) => {
+      const snap = buildSnapshot(stateRef.current);
+      const fresh = snap.approvals.filter((a) => !before.has(a.id));
+      for (const ap of fresh) {
+        const card = confirmFor([{ type: "decide_approval", approvalId: ap.id, decision: "allow" }], snap);
+        if (card) say({ role: "confirm", card, status: "pending" });
+      }
+      return fresh.length;
+    };
+
+    /** Run actions one by one so the owner can follow. Ask-first actions only run when `confirmed`. */
+    const execute = async (actions: UiAction[], confirmed: boolean) => {
+      for (const a of actions) {
+        if (isAskFirst(a) && !confirmed) continue;
+        const label = describeAction(a, buildSnapshot(stateRef.current));
+        await sleep(320);
+        switch (a.type) {
+          case "navigate":
+            setTab(a.tab);
+            step(label);
+            break;
+          case "open_chat":
+            openChat(a.customerId);
+            step(label);
+            break;
+          case "open_compliance_task":
+            openComplianceTask(a.taskId);
+            step(label);
+            break;
+          case "focus":
+            if (await focusAnchor(a.anchorId)) step(label);
+            break;
+          case "set_columns":
+            setColumns(a);
+            step(label);
+            break;
+          case "prepare_compliance": {
+            await prepareCompliance(a.taskId);
+            await settle();
+            const st = stateRef.current.compliance[a.taskId];
+            const task = complianceTasks.find((t) => t.id === a.taskId);
+            if (st?.status === "ready") {
+              step(label);
+              const parts = [`${taskLabel(buildSnapshot(stateRef.current), a.taskId)} is ready for you.`];
+              if (st.prepared?.length) parts.push(`I prepared:\n• ${st.prepared.join("\n• ")}`);
+              if (st.missing?.length) parts.push(`Still needed from you: ${st.missing.join(", ")}.`);
+              if (task && task.ownerMust !== "—") parts.push(`Only you can: ${task.ownerMust}`);
+              say({ role: "assistant", text: parts.join("\n\n") });
+            } else {
+              step(`Couldn't prepare ${task?.label ?? a.taskId}. Check Agent activity`, "warn");
+            }
+            break;
+          }
+          case "check_collisions":
+          case "chase_overdue": {
+            const before = pendingIds();
+            await (a.type === "check_collisions" ? checkCollisions() : chaseOverdue());
+            await settle();
+            const drafted = offerNewApprovals(before);
+            step(drafted ? `${label}: drafted ${drafted} decision${drafted > 1 ? "s" : ""} for you` : `${label}: nothing new to decide`, drafted ? "ok" : "warn");
+            break;
+          }
+          case "simulate_customer": {
+            const before = pendingIds();
+            openChat(a.customerId);
+            step(label);
+            await sendCustomerMessage(a.text, a.customerId);
+            await settle();
+            if (offerNewApprovals(before)) step("The agent drafted a reply and is holding it for your OK");
+            break;
+          }
+          case "run_automations": {
+            const before = stateRef.current.messages.filter((m) => m.automation).length;
+            await runAutomations();
+            await settle();
+            const sent = stateRef.current.messages.filter((m) => m.automation).length - before;
+            step(`${label}: ${sent} message${sent === 1 ? "" : "s"} sent`, sent ? "ok" : "warn");
+            break;
+          }
+          case "decide_approval": {
+            await decide(a.approvalId, a.decision);
+            await settle();
+            const after = stateRef.current.approvals.find((p) => p.id === a.approvalId)?.status;
+            if (after === (a.decision === "allow" ? "allowed" : "refused")) step(label);
+            else step(`Couldn't record the decision on ${a.approvalId}`, "warn");
+            break;
+          }
+          case "send_owner_message":
+            openChat(a.customerId);
+            sendOwnerMessage(a.text);
+            step(label);
+            break;
+        }
+      }
+    };
+
+    const askAssistant = async (text: string) => {
+      const msg = text.trim();
+      if (!msg || stateRef.current.assistant.busy) return;
+      const history: HistoryItem[] = stateRef.current.assistant.messages
+        .flatMap((m) => (m.role === "user" || m.role === "assistant" ? [{ role: m.role, text: m.text }] : []))
+        .slice(-10);
+      say({ role: "user", text: msg });
+      dispatch({ type: "assistant_busy", busy: true });
+      try {
+        const snapshot = buildSnapshot(stateRef.current);
+        let res: AssistantResponse;
+        try {
+          const r = await fetch("/api/assistant", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: msg, history, snapshot }) });
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          res = (await r.json()) as AssistantResponse;
+        } catch {
+          // offline / server down: the router is pure, so run it right here
+          res = route(msg, snapshot);
+        }
+        say({ role: "assistant", text: res.reply, engine: res.engine });
+        await execute(res.actions ?? [], false);
+        if (res.confirm?.actions.length) say({ role: "confirm", card: res.confirm, status: "pending" });
+      } finally {
+        dispatch({ type: "assistant_busy", busy: false });
+      }
+    };
+
+    const confirmAction = async (messageId: number) => {
+      const m = stateRef.current.assistant.messages.find((x) => x.id === messageId);
+      if (!m || m.role !== "confirm" || m.status !== "pending" || stateRef.current.assistant.busy) return;
+      dispatch({ type: "confirm_status", id: messageId, status: "running" });
+      dispatch({ type: "assistant_busy", busy: true });
+      try {
+        await execute(m.card.actions, true);
+      } finally {
+        dispatch({ type: "confirm_status", id: messageId, status: "confirmed" });
+        dispatch({ type: "assistant_busy", busy: false });
+      }
+    };
+
+    const cancelAction = (messageId: number) => {
+      const m = stateRef.current.assistant.messages.find((x) => x.id === messageId);
+      if (!m || m.role !== "confirm" || m.status !== "pending") return;
+      dispatch({ type: "confirm_status", id: messageId, status: "cancelled" });
+      step("Cancelled. Nothing was sent or changed", "warn");
+    };
+
+    return {
+      setTab,
+      reset: () => dispatch({ type: "reset" }),
+      openChat,
+      togglePause: (customerId: string) => dispatch({ type: "toggle_pause", customerId }),
+      toggleAutomation: (id: string) => dispatch({ type: "toggle_automation", id }),
+      setComplianceStatus: (id: string, status: ComplianceStatus) => dispatch({ type: "compliance_set", id, status }),
+      sendOwnerMessage,
+      sendCustomerMessage,
+      checkCollisions,
+      chaseOverdue,
+      toggleExamMode,
+      runAutomations,
+      prepareCompliance,
+      decide,
+      setColumns,
+      focusAnchor,
+      openComplianceTask,
+      askAssistant,
+      confirmAction,
+      cancelAction,
+    };
+  }, [play]);
+
+  const value = useMemo<Ctx>(() => ({ state, ...ops }), [state, ops]);
 
   return <StoreCtx.Provider value={value}>{children}</StoreCtx.Provider>;
 }
