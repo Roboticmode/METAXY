@@ -1,4 +1,4 @@
-# Metaxy
+# METAXY
 
 *Bridging informal hustle and formal business for South African small businesses.*
 

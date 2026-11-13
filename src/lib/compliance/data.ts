@@ -73,7 +73,7 @@ export const complianceTasks: ComplianceTask[] = [
     priority: "high",
     note: "Registered as an individual on eFiling — bakery income declared",
     why: "Bakery profit is taxable on top of your salary.",
-    steps: ["Register on SARS eFiling", "Link tax number to Metaxy"],
+    steps: ["Register on SARS eFiling", "Link tax number to METAXY"],
     docs: ["ID document (Smart ID)"],
     cost: "Free",
     time: "Done",

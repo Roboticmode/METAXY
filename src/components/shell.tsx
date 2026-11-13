@@ -29,7 +29,7 @@ export function Shell() {
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <div className="size-3 bg-foreground" aria-hidden />
-            <span className="text-sm font-bold uppercase tracking-tight">Metaxy</span>
+            <span className="text-sm font-bold uppercase tracking-tight">METAXY</span>
             <MonoLabel className="ml-1 text-muted-foreground">/ ZA</MonoLabel>
           </div>
           <div className="flex items-center gap-3 border-l border-border pl-3">

@@ -83,7 +83,7 @@ export function WhatsAppPanel() {
             <div key={m.id} className={cn("flex", outgoing ? "justify-end" : "justify-start")}>
               <div className={cn("max-w-[88%] rounded-lg px-2.5 py-1.5 text-xs leading-relaxed shadow-sm", outgoing ? "bg-[#d9fdd3] text-foreground" : "bg-white text-foreground")}>
                 {m.from === "agent" ? (
-                  <div className="mb-0.5 font-mono text-[9px] font-bold uppercase text-accent">{m.automation ? `Metaxy agent · ${m.automation}` : "Metaxy agent"}</div>
+                  <div className="mb-0.5 font-mono text-[9px] font-bold uppercase text-accent">{m.automation ? `METAXY agent · ${m.automation}` : "METAXY agent"}</div>
                 ) : m.from === "owner" ? (
                   <div className="mb-0.5 font-mono text-[9px] font-bold uppercase text-[var(--info)]">{ownerFirst} (you)</div>
                 ) : null}
