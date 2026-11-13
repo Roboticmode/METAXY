@@ -3,11 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { Send, RotateCcw, MessageCircle } from "lucide-react";
 import { newCustomer, presetMessages } from "@/lib/agent/data";
-import { useMetexi } from "@/lib/store";
+import { useMetaxy } from "@/lib/store";
 import { Badge, Btn, MonoLabel, cn } from "@/components/ui";
 
 export function WhatsAppPanel() {
-  const { state, sendCustomerMessage, reset } = useMetexi();
+  const { state, sendCustomerMessage, reset } = useMetaxy();
   const [text, setText] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -53,7 +53,7 @@ export function WhatsAppPanel() {
                 m.from === "agent" ? "bg-[#d9fdd3] text-foreground" : "bg-white text-foreground",
               )}
             >
-              {m.from === "agent" ? <div className="mb-0.5 font-mono text-[9px] font-bold uppercase text-accent">Metexi agent</div> : null}
+              {m.from === "agent" ? <div className="mb-0.5 font-mono text-[9px] font-bold uppercase text-accent">METAXY agent</div> : null}
               {m.text}
               <div className="mt-0.5 text-right font-mono text-[9px] text-muted-foreground">{m.at}</div>
             </div>

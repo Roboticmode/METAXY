@@ -3,11 +3,11 @@
 import { Check, Circle, Minus } from "lucide-react";
 import { complianceItems, TURNOVER } from "@/lib/agent/data";
 import { rand } from "@/lib/agent/tools";
-import { useMetexi } from "@/lib/store";
+import { useMetaxy } from "@/lib/store";
 import { Badge, Btn, MonoLabel, Panel, cn } from "@/components/ui";
 
 export function ComplianceBoard() {
-  const { state } = useMetexi();
+  const { state } = useMetaxy();
   const nudged = state.nudges.length > 0;
   const pct = Math.min(100, (TURNOVER.last12 / TURNOVER.vatThreshold) * 100);
   const done = complianceItems.filter((i) => i.status === "done").length;

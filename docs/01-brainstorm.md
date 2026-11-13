@@ -1,6 +1,6 @@
-# Metexi — Brainstorm
+# METAXY — Brainstorm
 
-> *Metexi* (Greek *metaxý* "in between"): the bridge between informal daily hustle and structured, formal business.
+> *METAXY* (Greek *metaxý* "in between"): the bridge between informal daily hustle and structured, formal business.
 > Working notes. **Status: DRAFT — decisions marked 🔲 need team sign-off.**
 
 ## 1. Problem
@@ -27,7 +27,7 @@ A **Grok Bot agent that runs a small business's customer conversations and admin
 ## 4. Candidate demo scenarios
 | ID | Scenario | Persona | Pillars | Wow factor | Build effort |
 | --- | --- | --- | --- | --- | --- |
-| **A** | Off-script WhatsApp order: no greeting + bereavement + "pay on delivery" → empathy, calendar check, deposit policy, owner override card | Moonlighting baker/pet-care owner | Ops (+CRM memory) | ⭐⭐⭐⭐⭐ (mirrors Chef's own example) | Medium |
+| **A** | Off-script WhatsApp order: no greeting + bereavement + "pay on delivery" → empathy, calendar check, deposit policy, owner override card | Moonlighting baker/pet-care owner | Ops (+CRM memory) | ⭐⭐⭐⭐⭐ (mirrors [Mentor]'s own example) | Medium |
 | **B** | Plumber voice note → structured job card → invoice sent | 5-person plumbing crew | Ops | ⭐⭐⭐⭐ (shows time saved on paper) | Medium |
 | **C** | Informal trader formalises + gets 15 km lead list | Spaza/supplier | Compliance + Opportunity | ⭐⭐⭐ (broad, harder to make "real") | High |
 
@@ -41,7 +41,7 @@ Flow for the 3-min demo:
 2. Customer message lands (simulated WhatsApp) — condolences, calendar check for Thursday, polite deposit requirement.
 3. Dashboard updates live: chat mirror, **Order card** (payment blocked), **Approval card** (Allow once / Refuse).
 4. Owner clicks *Allow once* → agent confirms to customer, order moves to *Confirmed*, customer memory updated.
-5. Agent notices revenue crossing a threshold → **Compliance card**: "You're ready to register with CIPC — here's your checklist." (the *Metexi bridge* moment).
+5. Agent notices revenue crossing a threshold → **Compliance card**: "You're ready to register with CIPC — here's your checklist." (the *METAXY bridge* moment).
 6. Flash tabs 3 & 4 (Opportunity, CRM) populated with fixture data to show the roadmap.
 
 Stretch: B (voice note → job card → invoice) as a second persona toggle.
@@ -93,4 +93,4 @@ Owner approvals (UI)           ─┘        │                     │ tools: 
 | 2 | Pillars wired E2E = Operations + Compliance | 🔲 |
 | 3 | Stack | 🔲 |
 | 4 | Roles (agent / frontend / data+demo) | 🔲 |
-| 5 | Product name spelling: **Metexi** (repo folder is METAXY) | 🔲 |
+| 5 | Product name spelling: **METAXY** | ✅ |

@@ -3,7 +3,7 @@
 import { Building2, Gauge, Radar, ShieldCheck, Users } from "lucide-react";
 import { business, TURNOVER } from "@/lib/agent/data";
 import type { Tab } from "@/lib/agent/types";
-import { useMetexi } from "@/lib/store";
+import { useMetaxy } from "@/lib/store";
 import { ComplianceBoard } from "@/components/compliance-board";
 import { CrmBoard, OpportunitiesBoard } from "@/components/other-boards";
 import { OperationsBoard } from "@/components/operations-board";
@@ -18,7 +18,7 @@ const tabs: { id: Tab; code: string; label: string; icon: typeof Gauge }[] = [
 ];
 
 export function Shell() {
-  const { state, setTab } = useMetexi();
+  const { state, setTab } = useMetaxy();
   const pendingApprovals = state.approvals.filter((a) => a.status === "pending").length;
 
   return (
@@ -27,7 +27,7 @@ export function Shell() {
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <div className="size-3 bg-foreground" aria-hidden />
-            <span className="text-sm font-bold uppercase tracking-tight">Metexi</span>
+            <span className="text-sm font-bold uppercase tracking-tight">METAXY</span>
             <MonoLabel className="ml-1 text-muted-foreground">/ ZA</MonoLabel>
           </div>
           <div className="flex items-center gap-3 border-l border-border pl-3">

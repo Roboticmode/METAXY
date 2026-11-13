@@ -1,7 +1,7 @@
 "use client";
 
 import { leads } from "@/lib/agent/data";
-import { useMetexi } from "@/lib/store";
+import { useMetaxy } from "@/lib/store";
 import { Badge, Btn, MonoLabel, Panel } from "@/components/ui";
 
 export function OpportunitiesBoard() {
@@ -34,7 +34,7 @@ export function OpportunitiesBoard() {
 }
 
 export function CrmBoard() {
-  const { state } = useMetexi();
+  const { state } = useMetaxy();
   return (
     <div className="min-h-0 flex-1 overflow-y-auto p-4">
       <Panel title="Customer memory" code="CRM-01" right={<Badge tone="info">{state.customers.length} customers</Badge>}>

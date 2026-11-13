@@ -99,7 +99,7 @@ type Ctx = {
 
 const StoreCtx = createContext<Ctx | null>(null);
 
-export function MetexiProvider({ children }: { children: ReactNode }) {
+export function MetaxyProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initial);
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -143,8 +143,8 @@ export function MetexiProvider({ children }: { children: ReactNode }) {
   return <StoreCtx.Provider value={value}>{children}</StoreCtx.Provider>;
 }
 
-export function useMetexi() {
+export function useMetaxy() {
   const ctx = useContext(StoreCtx);
-  if (!ctx) throw new Error("useMetexi must be used inside MetexiProvider");
+  if (!ctx) throw new Error("useMetaxy must be used inside MetaxyProvider");
   return ctx;
 }

@@ -12,7 +12,7 @@
 ## Timeline
 | Time | Goal | Done when |
 | --- | --- | --- |
-| 08:00–09:00 | Lock scope, accounts/credits, ask Chef open questions | Decisions log filled; everyone can log in |
+| 08:00–09:00 | Lock scope, accounts/credits, ask [Mentor] open questions | Decisions log filled; everyone can log in |
 | 09:00–10:30 | **Shell + mock agent**: dashboard layout, simulator chat, scripted Scenario A events | Demo runs end-to-end with fake agent |
 | 10:30–13:00 | **Real agent**: Grok Bot with policies/tools behind the adapter; swap in for mock | Scenario A works live with real agent |
 | 13:00–14:00 | Lunch + integrate; compliance card; approval flow polished | Allow once / Refuse changes state |
@@ -32,7 +32,7 @@
 
 ## Pre-event setup checklist
 - [ ] Create unified SpaceXSI account (new vs existing user — see brief)
-- [ ] Add teammates to GitHub repo (`Metexi`)
+- [ ] Add teammates to GitHub repo (`METAXY`)
 - [ ] Clone repo into `~/Desktop/coding/HACKATHONS/METAXY`
 - [ ] Gather Vanguard OS layout files to reuse
 - [ ] Node + package manager installed on all laptops
