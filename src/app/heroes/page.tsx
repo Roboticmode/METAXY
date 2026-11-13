@@ -3,7 +3,7 @@ import { HeroPlayground } from "@/components/landing/hero-playground";
 
 export const metadata: Metadata = {
   title: "METAXY — Hero & Agent State Testbench",
-  description: "Compare METAXY hero backgrounds (WovenLightHero, GrainGradient Auth, ElsewhereHero) and ThinkingOrb agent states.",
+  description: "Compare METAXY hero backgrounds (ElsewhereHero video, WovenLightHero light weave, GrainGradient) and ThinkingOrb agent states.",
 };
 
 export default function HeroesPage() {

@@ -5,12 +5,12 @@ import Link from "next/link";
 import { ArrowLeft, Layers, Sparkles } from "lucide-react";
 import ElsewhereHero from "@/components/ui/elsewhere-hero";
 import { WovenLightHero } from "@/components/ui/woven-light-hero";
-import { AuthGrainHero } from "@/components/ui/auth-grain-hero";
+import { GrainGradientHero } from "@/components/ui/auth-grain-hero";
 import { ThinkingOrb, type OrbState } from "@/components/ui/thinking-orbs";
+import { HERO_CTA_LABEL, HERO_HEADLINE, HERO_LINKS, HERO_SECONDARY, HERO_SUBLINE } from "@/components/landing/hero-copy";
 import { DAY_POSTER, DAY_SRC, NIGHT_POSTER, NIGHT_SRC } from "@/components/landing/hero-media";
 
-type HeroVariant = "woven" | "elsewhere" | "grain";
-type CopyMode = "metaxy" | "original";
+type HeroVariant = "woven" | "grain" | "elsewhere";
 
 const ORB_STATES: { state: OrbState; label: string; usage: string }[] = [
   { state: "working", label: "working", usage: "Agent busy / running tools" },
@@ -21,15 +21,16 @@ const ORB_STATES: { state: OrbState; label: string; usage: string }[] = [
   { state: "shaping", label: "shaping", usage: "Preparing compliance pack" },
 ];
 
+const HERO_PLAYGROUND_LINKS = [...HERO_LINKS, { label: "Hero Lab", href: "/heroes" }];
+
 export function HeroPlayground() {
   const [variant, setVariant] = useState<HeroVariant>("woven");
-  const [copyMode, setCopyMode] = useState<CopyMode>("metaxy");
   const [orbState, setOrbState] = useState<OrbState>("composing");
 
   return (
-    <div className="relative min-h-screen w-full bg-black text-white">
+    <div className="relative min-h-screen w-full bg-[#0a0d08] text-white">
       {/* Floating switcher bar */}
-      <div className="fixed top-4 right-4 z-50 flex flex-wrap items-center gap-2 rounded-full border border-white/15 bg-black/80 px-3 py-1.5 backdrop-blur-xl">
+      <div className="fixed right-4 bottom-4 z-50 flex flex-wrap items-center gap-2 rounded-full border border-white/15 bg-black/80 px-3 py-1.5 backdrop-blur-xl">
         <Link
           href="/"
           className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-white/75 hover:bg-white/10 hover:text-white"
@@ -41,9 +42,9 @@ export function HeroPlayground() {
           <Layers className="ml-1 size-3 text-emerald-400" />
           {(
             [
-              ["woven", "1 · Woven Light"],
-              ["grain", "2 · Grain Auth"],
-              ["elsewhere", "0 · Elsewhere Video"],
+              ["elsewhere", "1 · Elsewhere Video"],
+              ["woven", "2 · Woven Light"],
+              ["grain", "3 · Grain Gradient"],
             ] as const
           ).map(([id, label]) => (
             <button
@@ -58,35 +59,30 @@ export function HeroPlayground() {
             </button>
           ))}
         </div>
-        {variant === "woven" ? (
-          <>
-            <span className="h-4 w-px bg-white/15" aria-hidden />
-            <button
-              type="button"
-              onClick={() => setCopyMode((m) => (m === "metaxy" ? "original" : "metaxy"))}
-              className="cursor-pointer rounded-full border border-white/20 px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-emerald-300 hover:bg-white/10"
-            >
-              Copy: {copyMode === "metaxy" ? "METAXY" : "Original Demo"}
-            </button>
-          </>
-        ) : null}
       </div>
 
-      {/* Active Hero / Background */}
+      {/* Active Hero / Background (identical layout & copy across all 3) */}
       {variant === "woven" ? (
-        copyMode === "original" ? (
-          <WovenLightHero />
-        ) : (
-          <WovenLightHero
-            brand="METAXY"
-            headline="From hustle to formal business."
-            subline="An AI command centre that runs WhatsApp enquiries, balances university and client calendars, and keeps every approval in your hands."
-            ctaLabel="Open Command Centre"
-            ctaHref="/dashboard"
-          />
-        )
+        <WovenLightHero
+          brand="METAXY"
+          links={HERO_PLAYGROUND_LINKS}
+          navCta={{ label: HERO_CTA_LABEL, href: "/dashboard" }}
+          headline={HERO_HEADLINE}
+          subline={HERO_SUBLINE}
+          ctaLabel={HERO_CTA_LABEL}
+          ctaHref="/dashboard"
+          secondaryCta={HERO_SECONDARY}
+        />
       ) : variant === "grain" ? (
-        <AuthGrainHero />
+        <GrainGradientHero
+          brand="METAXY"
+          links={HERO_PLAYGROUND_LINKS}
+          navCta={{ label: HERO_CTA_LABEL, href: "/dashboard" }}
+          headline={HERO_HEADLINE}
+          subline={HERO_SUBLINE}
+          primaryCta={{ label: HERO_CTA_LABEL, href: "/dashboard" }}
+          secondaryCta={HERO_SECONDARY}
+        />
       ) : (
         <ElsewhereHero
           daySrc={DAY_SRC}
@@ -95,16 +91,15 @@ export function HeroPlayground() {
           nightPoster={NIGHT_POSTER}
           objectPosition="42% 50%"
           brand="METAXY"
-          links={[
-            { label: "Dashboard", href: "/dashboard" },
-            { label: "Hero Lab", href: "/heroes" },
-          ]}
-          navCta={{ label: "Open dashboard", href: "/dashboard" }}
-          headline="From hustle to formal business."
-          subline="Day/night video crossfade baseline hero for comparison against WovenLightHero and AuthGrainHero."
-          primaryCta={{ label: "Try the live demo", href: "/dashboard" }}
+          links={HERO_PLAYGROUND_LINKS}
+          navCta={{ label: HERO_CTA_LABEL, href: "/dashboard" }}
+          headline={HERO_HEADLINE}
+          subline={HERO_SUBLINE}
+          primaryCta={{ label: HERO_CTA_LABEL, href: "/dashboard" }}
+          secondaryCta={HERO_SECONDARY}
           sound={false}
-          cycleCaption={{ day: "By day: lectures & day job", night: "After hours: the studio" }}
+          cycleCaption={{ day: "By day: lectures, the 9-to-5, the day job", night: "After hours: the business, and METAXY keeps it running" }}
+          style={{ fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif" }}
         />
       )}
 

@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useRef, useState, type CSSProperties } from "react"
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react"
+import { MetaxyMark } from "@/components/ui/metaxy-mark"
 
 /**
  * Elsewhere — a full hero block.
@@ -17,11 +18,13 @@ import { useEffect, useRef, useState, type CSSProperties } from "react"
  * - `cycleCaption` shows a caption next to the day/night toggle
  * - `dayPoster` / `nightPoster` show a still while the footage loads (no black screen on slow networks)
  * - `fadeTo` fades the bottom edge into the next section's colour
+ * - `background` + `tone` allow swapping the video for another animated background (e.g. Woven Light, Grain Gradient) while keeping the exact same layout and typography
  */
 
 export interface ElsewhereLink {
   label: string
   href: string
+  onClick?: () => void
 }
 
 export interface ElsewhereHeroProps {
@@ -31,6 +34,10 @@ export interface ElsewhereHeroProps {
   dayPoster?: string
   /** Still image shown until the night footage can play */
   nightPoster?: string
+  /** Custom background animation replacing the day/night videos while keeping the exact hero layout */
+  background?: ReactNode
+  /** Surface contrast mode ("dark" default for video/grain, "light" for light-background animations) */
+  tone?: "dark" | "light"
   /** Colour the bottom edge fades into, for a calm hand-off to the next section */
   fadeTo?: string
   /** Brand shown top-left */
@@ -313,6 +320,8 @@ export default function ElsewhereHero({
   nightSrc = DEFAULT_NIGHT,
   dayPoster,
   nightPoster,
+  background,
+  tone = "dark",
   fadeTo,
   brand = "Elsewhere",
   links = DEFAULT_LINKS,
@@ -326,7 +335,7 @@ export default function ElsewhereHero({
   listenOffLabel = "Pause sound",
   soundHint = "Turn on the sound",
   cycleCaption,
-  signature = DEFAULT_SIGNATURE,
+  signature,
   objectPosition = "42% 50%",
   className,
   style,
@@ -340,6 +349,11 @@ export default function ElsewhereHero({
   const [isNight, setIsNight] = useState(false)
   const [muted, setMuted] = useState(true)
   const [shown, setShown] = useState(false)
+
+  const hasCustomBackground = background !== undefined && background !== null
+  const resolvedSignature = signature === undefined ? (hasCustomBackground ? false : DEFAULT_SIGNATURE) : signature
+  const isLight = tone === "light"
+  const sectionClass = [isLight ? "ew-light" : "", className ?? ""].filter(Boolean).join(" ") || undefined
 
   useEffect(() => {
     const raf = requestAnimationFrame(() => setShown(true))
@@ -397,7 +411,7 @@ export default function ElsewhereHero({
 
   return (
     <section
-      className={className}
+      className={sectionClass}
       aria-label={brand}
       style={{
         position: "relative",
@@ -405,49 +419,66 @@ export default function ElsewhereHero({
         minHeight: 560,
         width: "100%",
         overflow: "hidden",
-        background: "#0a0d08",
+        background: isLight ? "#f5f3ec" : "#0a0d08",
         fontFamily: SANS,
-        color: COL_TEXT,
+        color: isLight ? "#0a0d08" : COL_TEXT,
         ...style,
       }}
     >
       <style>{css}</style>
 
-      {/* DAY VIDEO */}
-      <video
-        ref={dayVideoRef}
-        src={daySrc}
-        poster={dayPoster}
-        autoPlay
-        loop
-        muted
-        playsInline
-        preload="auto"
-        aria-hidden="true"
-        style={{ ...videoStyle, objectPosition, opacity: isNight ? 0 : 1 }}
-      />
+      {hasCustomBackground ? (
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            inset: 0,
+            pointerEvents: "none",
+          }}
+        >
+          {background}
+        </div>
+      ) : (
+        <>
+          {/* DAY VIDEO */}
+          <video
+            ref={dayVideoRef}
+            src={daySrc}
+            poster={dayPoster}
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="auto"
+            aria-hidden="true"
+            style={{ ...videoStyle, objectPosition, opacity: isNight ? 0 : 1 }}
+          />
 
-      {/* NIGHT VIDEO */}
-      <video
-        ref={nightVideoRef}
-        src={nightSrc}
-        poster={nightPoster}
-        autoPlay
-        loop
-        muted
-        playsInline
-        preload="auto"
-        aria-hidden="true"
-        style={{ ...videoStyle, objectPosition, opacity: isNight ? 1 : 0 }}
-      />
+          {/* NIGHT VIDEO */}
+          <video
+            ref={nightVideoRef}
+            src={nightSrc}
+            poster={nightPoster}
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="auto"
+            aria-hidden="true"
+            style={{ ...videoStyle, objectPosition, opacity: isNight ? 1 : 0 }}
+          />
+        </>
+      )}
 
-      {/* CINEMATIC OVERLAY — a little deeper at the top, so the headline reads on the daytime sky */}
+      {/* CINEMATIC OVERLAY — keeps headline & nav legible across video / animation frames */}
       <div
+        aria-hidden="true"
         style={{
           position: "absolute",
           inset: 0,
-          background:
-            "linear-gradient(180deg, rgba(0,0,0,0.42), rgba(0,0,0,0.16) 38%, rgba(0,0,0,0) 62%, rgba(0,0,0,0.34))",
+          background: isLight
+            ? "linear-gradient(180deg, rgba(245,243,236,0.72), rgba(245,243,236,0.34) 42%, rgba(245,243,236,0.08) 72%, rgba(245,243,236,0.22))"
+            : "linear-gradient(180deg, rgba(0,0,0,0.42), rgba(0,0,0,0.16) 38%, rgba(0,0,0,0) 62%, rgba(0,0,0,0.34))",
           pointerEvents: "none",
         }}
       />
@@ -460,9 +491,10 @@ export default function ElsewhereHero({
             left: 0,
             right: 0,
             bottom: 0,
-            height: "30%",
+            height: isLight ? "18%" : "30%",
             background: `linear-gradient(180deg, transparent, ${fadeTo})`,
             pointerEvents: "none",
+            zIndex: 1,
           }}
         />
       )}
@@ -470,7 +502,8 @@ export default function ElsewhereHero({
       {/* NAVIGATION */}
       <header className="ew-nav" style={{ ...rise(0) }}>
         <a href="#" className="ew-brand">
-          {brand}
+          <MetaxyMark size={20} tone={isLight ? "light" : "dark"} />
+          <span>{brand}</span>
         </a>
         <nav aria-label={brand} className="ew-links">
           {links.map((l) => (
@@ -495,9 +528,15 @@ export default function ElsewhereHero({
           {subline}
         </p>
         <div className="ew-ctas" style={rise(3)}>
-          <a href={primaryCta.href} className="ew-pill ew-primary">
-            {primaryCta.label}
-          </a>
+          {primaryCta.onClick && (!primaryCta.href || primaryCta.href === "#") ? (
+            <button type="button" onClick={primaryCta.onClick} className="ew-pill ew-primary">
+              {primaryCta.label}
+            </button>
+          ) : (
+            <a href={primaryCta.href} onClick={primaryCta.onClick} className="ew-pill ew-primary">
+              {primaryCta.label}
+            </a>
+          )}
           {secondaryCta ? (
             <a href={secondaryCta.href} className="ew-glass ew-pill">
               {secondaryCta.label}
@@ -511,59 +550,63 @@ export default function ElsewhereHero({
         </div>
       </div>
 
-      {/* CONTROLS */}
-      <div
-        style={{
-          position: "absolute",
-          left: "clamp(14px, 3vw, 28px)",
-          bottom: "clamp(14px, 3vh, 28px)",
-          display: "flex",
-          alignItems: "center",
-          gap: "clamp(8px, 1.5vw, 12px)",
-          zIndex: 2,
-        }}
-      >
-        {/* DAY / NIGHT */}
-        <button onClick={toggleNight} aria-label={isNight ? "Switch to day" : "Switch to night"} style={iconButtonStyle}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            {isNight ? (
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" stroke={COL_TEXT} strokeWidth="1.6" strokeLinejoin="round" />
-            ) : (
-              <>
-                <circle cx="12" cy="12" r="4.5" stroke={COL_TEXT} strokeWidth="1.6" />
-                <path
-                  d="M12 2v2.5M12 19.5V22M4.2 4.2l1.8 1.8M18 18l1.8 1.8M2 12h2.5M19.5 12H22M4.2 19.8 6 18M18 6l1.8-1.8"
-                  stroke={COL_TEXT}
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                />
-              </>
-            )}
-          </svg>
-        </button>
+      {/* CONTROLS (only when video/sound controls apply) */}
+      {!hasCustomBackground || sound ? (
+        <div
+          style={{
+            position: "absolute",
+            left: "clamp(14px, 3vw, 28px)",
+            bottom: "clamp(14px, 3vh, 28px)",
+            display: "flex",
+            alignItems: "center",
+            gap: "clamp(8px, 1.5vw, 12px)",
+            zIndex: 2,
+          }}
+        >
+          {/* DAY / NIGHT */}
+          {!hasCustomBackground && (
+            <button onClick={toggleNight} aria-label={isNight ? "Switch to day" : "Switch to night"} style={iconButtonStyle}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                {isNight ? (
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" stroke={COL_TEXT} strokeWidth="1.6" strokeLinejoin="round" />
+                ) : (
+                  <>
+                    <circle cx="12" cy="12" r="4.5" stroke={COL_TEXT} strokeWidth="1.6" />
+                    <path
+                      d="M12 2v2.5M12 19.5V22M4.2 4.2l1.8 1.8M18 18l1.8 1.8M2 12h2.5M19.5 12H22M4.2 19.8 6 18M18 6l1.8-1.8"
+                      stroke={COL_TEXT}
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                    />
+                  </>
+                )}
+              </svg>
+            </button>
+          )}
 
-        {cycleCaption && (
-          <span className="ew-caption" aria-live="polite">
-            {isNight ? cycleCaption.night : cycleCaption.day}
-          </span>
-        )}
+          {!hasCustomBackground && cycleCaption && (
+            <span className="ew-caption" aria-live="polite">
+              {isNight ? cycleCaption.night : cycleCaption.day}
+            </span>
+          )}
 
-        {/* AUDIO */}
-        {sound && (
-          <button onClick={toggleMuted} aria-label={muted ? "Unmute" : "Mute"} style={iconButtonStyle}>
-            <SoundIcon muted={muted} size={18} />
-          </button>
-        )}
+          {/* AUDIO */}
+          {sound && (
+            <button onClick={toggleMuted} aria-label={muted ? "Unmute" : "Mute"} style={iconButtonStyle}>
+              <SoundIcon muted={muted} size={18} />
+            </button>
+          )}
 
-        {sound && soundHint && muted && (
-          <span className="ew-hint" aria-hidden="true">
-            ← {soundHint}
-          </span>
-        )}
-      </div>
+          {sound && soundHint && muted && (
+            <span className="ew-hint" aria-hidden="true">
+              ← {soundHint}
+            </span>
+          )}
+        </div>
+      ) : null}
 
       {/* SIGNATURE */}
-      {signature && (
+      {resolvedSignature && (
         <span
           style={{
             position: "absolute",
@@ -572,13 +615,18 @@ export default function ElsewhereHero({
             fontWeight: 500,
             fontSize: "clamp(11px, 1.4vw, 13px)",
             letterSpacing: "0.01em",
-            color: "rgba(245,243,236,0.6)",
+            color: isLight ? "rgba(10,13,8,0.6)" : "rgba(245,243,236,0.6)",
             zIndex: 2,
           }}
         >
           by{" "}
-          <a href={signature.url} target="_blank" rel="noopener noreferrer" style={{ color: "rgba(245,243,236,0.6)", textDecoration: "none" }}>
-            {signature.name}
+          <a
+            href={resolvedSignature.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: isLight ? "rgba(10,13,8,0.6)" : "rgba(245,243,236,0.6)", textDecoration: "none" }}
+          >
+            {resolvedSignature.name}
           </a>
         </span>
       )}
@@ -627,7 +675,7 @@ const iconButtonStyle: CSSProperties = {
 /* Scoped to class names starting with "ew-". */
 const css = `
 .ew-nav{position:absolute;top:0;left:0;right:0;z-index:3;display:flex;align-items:center;justify-content:space-between;gap:24px;padding:clamp(14px,3vh,24px) clamp(14px,3vw,28px)}
-.ew-brand{font-weight:500;font-size:clamp(11px,1.6vw,13px);letter-spacing:.35em;text-transform:uppercase;color:rgba(245,243,236,.75);text-decoration:none}
+.ew-brand{display:inline-flex;align-items:center;gap:8px;font-weight:500;font-size:clamp(11px,1.6vw,13px);letter-spacing:.35em;text-transform:uppercase;color:rgba(245,243,236,.75);text-decoration:none}
 .ew-links{display:flex;gap:clamp(18px,2.6vw,32px)}
 .ew-link{position:relative;font-size:14px;color:rgba(245,243,236,.82);text-decoration:none;transition:color .3s}
 .ew-link::after{content:"";position:absolute;left:0;right:0;bottom:-3px;height:1px;background:currentColor;transform:scaleX(0);transform-origin:left;transition:transform .4s cubic-bezier(.2,.7,.2,1)}
@@ -648,6 +696,17 @@ const css = `
 .ew-caption{font-size:13px;color:rgba(245,243,236,.85);white-space:nowrap;text-shadow:0 1px 12px rgba(0,0,0,.4)}
 @keyframes ew-pulse{0%,100%{opacity:.45}50%{opacity:.9}}
 .ew-nav a:focus-visible,.ew-pill:focus-visible{outline:2px solid #f5f3ec;outline-offset:3px}
+.ew-light{color:#0a0d08}
+.ew-light .ew-brand{color:rgba(10,13,8,.82)}
+.ew-light .ew-link{color:rgba(10,13,8,.76)}
+.ew-light .ew-link:hover,.ew-light .ew-link:focus-visible{color:#0a0d08}
+.ew-light .ew-title{color:#0a0d08;text-shadow:0 2px 24px rgba(245,243,236,.75)}
+.ew-light .ew-sub{color:rgba(10,13,8,.82);text-shadow:0 1px 14px rgba(245,243,236,.8)}
+.ew-light .ew-primary{background:#0a0d08;color:#f5f3ec;border-color:#0a0d08}
+.ew-light .ew-primary:hover{background:#1b2117}
+.ew-light .ew-glass{color:#0a0d08;border-color:rgba(10,13,8,.18);background:rgba(245,243,236,.65)}
+.ew-light .ew-glass:hover{background:rgba(245,243,236,.92);border-color:rgba(10,13,8,.34)}
+.ew-light .ew-nav a:focus-visible,.ew-light .ew-pill:focus-visible{outline-color:#0a0d08}
 @media (max-width:720px){.ew-links{display:none}.ew-hint{display:none}}
 @media (prefers-reduced-motion:reduce){.ew-hint{animation:none}.ew-link::after,.ew-pill{transition:none}}
 `
