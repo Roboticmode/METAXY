@@ -33,7 +33,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const sdp = typeof body.sdp === "string" ? body.sdp.trim() : "";
+  const rawSdp = typeof body.sdp === "string" ? body.sdp : "";
+  const sdp = rawSdp.trim().length > 0 ? (rawSdp.endsWith("\r\n") ? rawSdp : `${rawSdp.replace(/\r?\n?$/, "\r\n")}`) : "";
   const snapshot = body.snapshot;
   if (!sdp) return NextResponse.json({ error: "WebRTC SDP offer is required" }, { status: 400 });
   if (!snapshot) return NextResponse.json({ error: "Dashboard snapshot is required" }, { status: 400 });
