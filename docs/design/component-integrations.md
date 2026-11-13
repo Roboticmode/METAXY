@@ -108,22 +108,15 @@ export default function ThinkingOrbThinkingDemo() {
 
 ## 3. Hero & Background Test Variants
 
-To test visual directions without breaking the production landing page (`/`), METAXY maintains a live background switcher at **`/heroes`** ([src/app/heroes/page.tsx](../../src/app/heroes/page.tsx) + [src/components/landing/hero-playground.tsx](../../src/components/landing/hero-playground.tsx)):
+All three hero slides on `/` (`HeroCarousel`) and `/heroes` (`HeroPlayground`) share the **exact same `ElsewhereHero` layout, typography (`Inter`), nav, headline, and CTAs**—only the background layer swaps:
 
-| Option | Component | Dependencies | Visual Concept |
+| Option | Component | Dependencies | Background Only |
 | --- | --- | --- | --- |
-| **Option 0 (Current Default)** | [elsewhere-hero.tsx](../../src/components/ui/elsewhere-hero.tsx) via [metaxy-hero.tsx](../../src/components/landing/metaxy-hero.tsx) | None (HTML5 video + Web Audio API optional) | Day/night crossfade video ("day job / lectures vs. after-hours studio") |
-| **Option 1 (3D Particle Weave)** | [woven-light-hero.tsx](../../src/components/ui/woven-light-hero.tsx) | `three`, `@types/three`, `framer-motion` | Interactive 50,000-particle Three.js `TorusKnotGeometry` with pointer repulsion + Framer Motion letter stagger |
-| **Option 2 (`auth-section-1` Grain Gradient)** | [auth-grain-hero.tsx](../../src/components/ui/auth-grain-hero.tsx) | `@paper-design/shaders-react` | Split hero / owner auth layout using `GrainGradient` (`corners` shader) paired with [auth-card.tsx](../../src/components/auth-card.tsx) |
+| **Variant 1 (Default)** | [elsewhere-hero.tsx](../../src/components/ui/elsewhere-hero.tsx) via [metaxy-hero.tsx](../../src/components/landing/metaxy-hero.tsx) | None (HTML5 video + Web Audio API optional) | Day/night crossfade video on dark `#0a0d08` |
+| **Variant 2 (Woven Light)** | [woven-light-hero.tsx](../../src/components/ui/woven-light-hero.tsx) via [woven-slide.tsx](../../src/components/landing/woven-slide.tsx) | `three`, `@types/three` | Light background (`#f5f3ec`) with 50,000-particle Three.js `TorusKnotGeometry` weave (`NormalBlending`) replacing the video |
+| **Variant 3 (Grain Gradient)** | [auth-grain-hero.tsx](../../src/components/ui/auth-grain-hero.tsx) (`GrainGradientHero`) via [grain-slide.tsx](../../src/components/landing/grain-slide.tsx) | `@paper-design/shaders-react` | `GrainGradient` (`corners` shader) background only on dark `#0c1210` (no sign-in split card) |
 
-### Option 1 Notes (`woven-light-hero.tsx`)
-- **Props:** Accepts optional `brand`, `headline`, `subline`, `ctaLabel`, `ctaHref`, and `onCtaClick` (defaulting to the original `"Woven"` / `"Woven by Light"` / `"Explore the Weave"` demo values).
-- **WebGL & SSR hygiene:** Marked `"use client"`; cancels `requestAnimationFrame`, disposes `TorusKnotGeometry` / `BufferGeometry` / `PointsMaterial` / `WebGLRenderer`, and cleans up dynamically injected `<link>` fonts on unmount so switching hero variants on `/heroes` does not leak WebGL contexts.
-- **Font note:** Uses `Playfair Display` + `Inter` (in METAXY production sections, align font variables or pair with `Inter` + `JetBrains Mono` from `globals.css` if adopting permanently).
-
-### Option 2 Notes (`21st.dev/@solaceui/components/auth-section-1`)
-- **Source:** https://21st.dev/@solaceui/components/auth-section-1
-- **Dependency:** `@paper-design/shaders-react` (`GrainGradient`)
-- **Best fit in METAXY:**
-  - Either as an **animated grain-gradient side panel** inside [src/components/landing/sign-in-section.tsx](../../src/components/landing/sign-in-section.tsx) alongside `AuthCard`,
-  - Or as a lightweight **full-bleed split hero + immediate demo/sign-in entry** when venue Wi-Fi makes video clips heavy (`GrainGradient` renders procedurally on GPU with zero video payload).
+### Variant Notes
+- **`ElsewhereHero` (`background` + `tone`):** Accepts `background?: ReactNode` and `tone?: "dark" | "light"` (`#f5f3ec` paper surface + `#0a0d08` ink overrides for `WovenLightHero`).
+- **WebGL hygiene (`woven-light-hero.tsx`):** Cleans up `requestAnimationFrame`, `ResizeObserver`, `mousemove` listeners, geometries, materials, and `WebGLRenderer` on unmount so switching slides never leaks WebGL contexts.
+- **Background-only rule (`auth-grain-hero.tsx`):** Uses only the `GrainGradient` background layer from `21st.dev/@solaceui/components/auth-section-1`; owner sign-in lives exclusively in [sign-in-section.tsx](../../src/components/landing/sign-in-section.tsx).
