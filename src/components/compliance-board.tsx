@@ -27,7 +27,14 @@ export function ComplianceBoard() {
   const applicable = complianceTasks.filter((t) => status(t.id) !== "na");
   const done = applicable.filter((t) => status(t.id) === "done").length;
   const nextUp = [...applicable].filter((t) => status(t.id) === "todo" && !blockedBy(t, status)).sort((a, b) => priorityRank[a.priority] - priorityRank[b.priority])[0];
-  const [selected, setSelected] = useState<string>("cipc");
+  const [selected, setSelectedId] = useState<string>("cipc");
+  // In the single-column layout (< 1280 px) the task detail sits below the checklist, so bring it into view.
+  const setSelected = (id: string) => {
+    setSelectedId(id);
+    if (typeof window === "undefined" || window.matchMedia("(min-width: 1280px)").matches) return;
+    const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    requestAnimationFrame(() => document.getElementById("comp-task")?.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "start" }));
+  };
   const task = complianceTasks.find((t) => t.id === selected) ?? complianceTasks[0];
 
   const categories = [...new Set(complianceTasks.map((t) => t.category))];
@@ -35,8 +42,8 @@ export function ComplianceBoard() {
   const docs = currentVault((id) => status(id) === "done");
 
   return (
-    <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto p-4 xl:grid-cols-5">
-      <div className="space-y-4 xl:col-span-3">
+    <div className="grid min-h-0 flex-1 grid-cols-1 content-start gap-3 overflow-y-auto overscroll-contain p-3 pb-24 md:gap-4 md:p-4 md:pb-24 xl:grid-cols-5">
+      <div className="min-w-0 space-y-3 md:space-y-4 xl:col-span-3">
         {nudged ? (
           <div className="rounded border border-accent/40 bg-accent/10 p-3 text-xs leading-relaxed">
             <div className="mb-1 flex items-center gap-2">
@@ -48,13 +55,13 @@ export function ComplianceBoard() {
           </div>
         ) : null}
 
-        <Panel title="Business legalities" code="COMP-01" right={<Badge tone="info">{done}/{applicable.length} complete</Badge>}>
+        <Panel id="comp-checklist" title="Business legalities" code="COMP-01" right={<Badge tone="info">{done}/{applicable.length} complete</Badge>}>
           <div className="mb-3 h-1.5 w-full bg-secondary">
             <div className="h-1.5 bg-accent transition-all" style={{ width: `${(done / applicable.length) * 100}%` }} />
           </div>
           {nextUp ? (
             <p className="mb-3 text-[11px] text-muted-foreground">
-              Next most important: <button className="cursor-pointer font-semibold text-foreground underline" onClick={() => setSelected(nextUp.id)}>{nextUp.label}</button>
+              Next most important: <button className="cursor-pointer font-semibold text-foreground underline pointer-coarse:inline-flex pointer-coarse:min-h-10 pointer-coarse:items-center" onClick={() => setSelected(nextUp.id)}>{nextUp.label}</button>
             </p>
           ) : null}
           <div className="space-y-3">
@@ -73,14 +80,14 @@ export function ComplianceBoard() {
                           <button
                             onClick={() => setSelected(t.id)}
                             className={cn(
-                              "flex w-full cursor-pointer items-start gap-3 px-3 py-2 text-left transition-colors hover:bg-secondary/60",
+                              "flex min-h-11 w-full cursor-pointer items-start gap-3 px-3 py-2 text-left transition-colors hover:bg-secondary/60",
                               selected === t.id && "bg-secondary",
                               highlight && selected !== t.id && "bg-accent/10",
                             )}
                           >
                             <StatusIcon status={st} />
                             <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2 text-xs font-semibold">
+                              <div className="flex flex-wrap items-center gap-x-2 text-xs font-semibold">
                                 {t.label}
                                 {t.priority === "high" && st === "todo" ? <span className="size-1.5 rounded-full bg-[var(--warning)]" title="High priority" /> : null}
                               </div>
@@ -99,15 +106,15 @@ export function ComplianceBoard() {
         </Panel>
       </div>
 
-      <div className="space-y-4 xl:col-span-2">
+      <div className="min-w-0 space-y-3 md:space-y-4 xl:col-span-2">
         <TaskDetail task={task} docs={docs} />
 
-        <Panel title="Upcoming legal dates" code="COMP-02">
+        <Panel id="comp-deadlines" title="Upcoming legal dates" code="COMP-02">
           <ul className="space-y-1.5">
             {deadlines.map((d) => (
               <li key={d.what} className="flex items-start gap-2 text-[11px] leading-snug">
                 <Clock className="mt-0.5 size-3 shrink-0 text-muted-foreground" />
-                <button className="flex-1 cursor-pointer text-left hover:underline" onClick={() => setSelected(d.taskId)}>
+                <button className="min-w-0 flex-1 cursor-pointer text-left hover:underline pointer-coarse:min-h-10" onClick={() => setSelected(d.taskId)}>
                   {d.what}
                 </button>
                 <Badge tone={d.tone}>{d.when}</Badge>
@@ -116,8 +123,8 @@ export function ComplianceBoard() {
           </ul>
         </Panel>
 
-        <Panel title="Turnover vs VAT threshold" code="COMP-03">
-          <div className="flex items-end justify-between">
+        <Panel id="comp-vat" title="Turnover vs VAT threshold" code="COMP-03">
+          <div className="flex flex-wrap items-end justify-between gap-x-2">
             <div className="font-mono text-lg font-bold">{rand(TURNOVER.last12)}</div>
             <MonoLabel className="text-muted-foreground">of {rand(TURNOVER.vatThreshold)} / 12 mo</MonoLabel>
           </div>
@@ -129,11 +136,11 @@ export function ComplianceBoard() {
           </p>
         </Panel>
 
-        <Panel title="Document vault" code="COMP-04" right={<Badge>{docs.length} docs</Badge>}>
+        <Panel id="comp-vault" title="Document vault" code="COMP-04" right={<Badge>{docs.length} docs</Badge>}>
           <ul className="space-y-1.5 text-xs">
             {docs.map((d) => (
-              <li key={d} className="flex items-center justify-between rounded border border-border px-2 py-1.5">
-                {d}
+              <li key={d} className="flex items-center justify-between gap-2 rounded border border-border px-2 py-1.5">
+                <span className="min-w-0 break-words">{d}</span>
                 <Badge tone="ok">stored</Badge>
               </li>
             ))}
@@ -180,7 +187,7 @@ function TaskDetail({ task, docs }: { task: ComplianceTask; docs: string[] }) {
   const preparing = state.preparing === task.id;
 
   return (
-    <Panel title={task.label} code="TASK" right={<Badge tone={statusMeta[st.status].tone}>{statusMeta[st.status].label}</Badge>}>
+    <Panel id="comp-task" title={task.label} code="TASK" right={<Badge tone={statusMeta[st.status].tone}>{statusMeta[st.status].label}</Badge>}>
       <div className="space-y-3 text-xs">
         <p className="leading-relaxed">{task.why}</p>
 
@@ -267,7 +274,7 @@ function TaskDetail({ task, docs }: { task: ComplianceTask; docs: string[] }) {
               <Check className="size-3" /> Mark approved
             </Btn>
           ) : null}
-          <a href={task.where.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--info)] hover:underline">
+          <a href={task.where.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--info)] hover:underline pointer-coarse:min-h-10">
             {task.where.label} <ArrowUpRight className="size-3" />
           </a>
         </div>

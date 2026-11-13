@@ -141,6 +141,20 @@
   --sidebar-ring: oklch(0.551 0.027 264.364);
 }
 
+/*
+ * Dashboard layout (Task 2). Below 768 px the command centre shows a 3.5rem bottom tab bar;
+ * anything fixed to the bottom (e.g. the agent launcher, z-50) should sit above it:
+ *   bottom: calc(var(--metaxy-bottom-inset) + 1rem)
+ */
+:root {
+  --metaxy-bottom-inset: 0px;
+}
+@media (max-width: 767.98px) {
+  :root {
+    --metaxy-bottom-inset: calc(3.5rem + env(safe-area-inset-bottom));
+  }
+}
+
 @layer base {
   * {
     border-color: var(--color-border);

@@ -18,16 +18,16 @@ export function WhatsAppBoard() {
   const needsYou = Object.keys(state.handoffs).length;
 
   return (
-    <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto p-4 xl:grid-cols-5">
-      <div className="space-y-4 xl:col-span-3">
-        <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+    <div className="grid min-h-0 flex-1 grid-cols-1 content-start gap-3 overflow-y-auto overscroll-contain p-3 pb-24 md:gap-4 md:p-4 md:pb-24 xl:grid-cols-5">
+      <div className="@container min-w-0 space-y-3 md:space-y-4 xl:col-span-3">
+        <div className="grid grid-cols-2 gap-2 @lg:grid-cols-4">
           <Stat label="Replies by agent" value={byAgent} />
           <Stat label="Replies by you" value={byOwner} />
           <Stat label="Needs you" value={needsYou} tone={needsYou ? "warn" : undefined} />
           <Stat label="Typing saved" value={`≈${byAgent * 3} min`} />
         </div>
 
-        <Panel title="Customer chats" code="WA-01" right={<Badge tone="info">{inbox.length} chats</Badge>}>
+        <Panel id="wa-inbox" title="Customer chats" code="WA-01" right={<Badge tone="info">{inbox.length} chats</Badge>}>
           <ul className="divide-y divide-border">
             {inbox.map((c) => {
               const m = lastMsg(c.id);
@@ -38,7 +38,7 @@ export function WhatsAppBoard() {
                 <li key={c.id}>
                   <button
                     onClick={() => openChat(c.id)}
-                    className={cn("flex w-full cursor-pointer items-start gap-3 px-2 py-2.5 text-left transition-colors hover:bg-secondary/60", active && "bg-secondary")}
+                    className={cn("flex min-h-12 w-full cursor-pointer items-start gap-3 px-2 py-2.5 text-left transition-colors hover:bg-secondary/60", active && "bg-secondary")}
                   >
                     <div className="grid size-8 shrink-0 place-items-center rounded-full bg-[#25D366]/15 text-[10px] font-bold text-[#128C4B]">
                       {c.name
@@ -47,7 +47,7 @@ export function WhatsAppBoard() {
                         .join("")}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <span className="text-xs font-bold">{c.name}</span>
                         <MonoLabel className="text-muted-foreground">{c.business}</MonoLabel>
                         {handoff ? <Badge tone="warn">needs you</Badge> : null}
@@ -67,12 +67,13 @@ export function WhatsAppBoard() {
               );
             })}
           </ul>
-          <p className="mt-2 text-[11px] text-muted-foreground">Click a chat to open it in the phone on the right. You can step in and reply yourself at any time — the agent pauses for that chat.</p>
+          <p className="mt-2 text-[11px] text-muted-foreground">Open a chat to see it in the WhatsApp phone<span className="hidden xl:inline"> on the right</span>. You can step in and reply yourself at any time — the agent pauses for that chat.</p>
         </Panel>
       </div>
 
-      <div className="space-y-4 xl:col-span-2">
+      <div className="min-w-0 space-y-3 md:space-y-4 xl:col-span-2">
         <Panel
+          id="wa-automations"
           title="Automations"
           code="WA-02"
           right={
@@ -85,16 +86,16 @@ export function WhatsAppBoard() {
             {automations.map((a) => {
               const on = state.automations[a.id];
               return (
-                <li key={a.id} className="flex items-start gap-2">
+                <li key={a.id} className="flex items-start gap-3">
                   <button
                     role="switch"
                     aria-checked={on}
                     aria-label={a.label}
                     disabled={a.locked}
                     onClick={() => toggleAutomation(a.id)}
-                    className={cn("mt-0.5 flex h-4 w-7 shrink-0 cursor-pointer items-center rounded-full p-0.5 transition-colors disabled:cursor-not-allowed", on ? "bg-accent" : "bg-border")}
+                    className={cn("relative mt-0.5 flex h-4 w-7 shrink-0 cursor-pointer items-center rounded-full p-0.5 transition-colors before:absolute before:-inset-x-2 before:-inset-y-3 before:content-[''] disabled:cursor-not-allowed", on ? "bg-accent" : "bg-border")}
                   >
-                    <span className={cn("size-3 rounded-full bg-white shadow transition-transform", on && "translate-x-3")} />
+                    <span className={cn("size-3 rounded-full bg-white shadow transition-transform motion-reduce:transition-none", on && "translate-x-3")} />
                   </button>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 text-xs font-semibold">
@@ -113,7 +114,7 @@ export function WhatsAppBoard() {
           </p>
         </Panel>
 
-        <Panel title="WhatsApp Business setup" code="WA-03" right={<Badge tone="info">{setupSteps.filter((s) => s.status === "done").length}/{setupSteps.length}</Badge>}>
+        <Panel id="wa-setup" title="WhatsApp Business setup" code="WA-03" right={<Badge tone="info">{setupSteps.filter((s) => s.status === "done").length}/{setupSteps.length}</Badge>}>
           <ul className="space-y-2">
             {setupSteps.map((s) => (
               <li key={s.id} className="flex items-start gap-2">
