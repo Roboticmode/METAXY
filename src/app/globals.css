@@ -151,3 +151,180 @@
     color: var(--color-foreground);
   }
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Landing page (Task 1). Every class and variable here is prefixed `landing-`
+ * so it can't collide with the dashboard.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+.landing-root {
+  /* The hero's night and its warm off-white text, reused for every dark band. */
+  --landing-ink: oklch(0.155 0.008 130);
+  --landing-ink-2: oklch(0.2 0.008 130);
+  --landing-ink-3: oklch(0.26 0.008 130);
+  --landing-paper: oklch(0.965 0.008 95);
+  --landing-paper-2: oklch(0.94 0.008 95);
+  overflow-x: clip;
+}
+
+.landing-root :where(a, button, summary):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.landing-dark :where(a, button, summary):focus-visible {
+  outline-color: var(--landing-paper);
+}
+
+/* Fine grain + vignette for dark bands, so they read as film, not flat fill. */
+.landing-grain {
+  background-image:
+    radial-gradient(120% 80% at 50% 0%, oklch(1 0 0 / 0.05), transparent 60%),
+    radial-gradient(80% 60% at 50% 120%, oklch(0.62 0.13 160 / 0.10), transparent 70%);
+}
+
+.landing-hairlines {
+  background-image:
+    linear-gradient(to right, oklch(0.13 0 0 / 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(0.13 0 0 / 0.045) 1px, transparent 1px);
+  background-size: 64px 64px;
+}
+
+.landing-dark .landing-hairlines {
+  background-image:
+    linear-gradient(to right, oklch(1 0 0 / 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(1 0 0 / 0.04) 1px, transparent 1px);
+}
+
+/* Reveal on scroll. Content is only hidden once JS has confirmed motion is
+ * welcome (the observer adds `landing-motion` to <html>), so no-JS and
+ * reduced-motion visitors always see everything. */
+.landing-motion [data-reveal] {
+  opacity: 0;
+  transform: translate3d(0, 18px, 0);
+  transition:
+    opacity 0.9s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: var(--landing-delay, 0ms);
+}
+
+.landing-motion [data-reveal="fade"] {
+  transform: none;
+}
+
+.landing-motion [data-reveal][data-revealed] {
+  opacity: 1;
+  transform: none;
+}
+
+/* Product reveal: the screenshot starts tilted back and settles flat as it
+ * scrolls into view. Pure CSS (scroll-driven animations); browsers without
+ * support simply show it flat. */
+@keyframes landing-settle {
+  from {
+    transform: perspective(1800px) rotateX(16deg) scale(0.93) translateY(24px);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .landing-settle {
+      transform-origin: 50% 100%;
+      animation: landing-settle linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 42%;
+    }
+  }
+}
+
+/* Slow pulse for "live" dots. */
+@keyframes landing-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.landing-live {
+  animation: landing-pulse 2.4s ease-in-out infinite;
+}
+
+/* Typing dots in the chat vignette. */
+@keyframes landing-typing {
+  0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-2px); }
+}
+
+.landing-typing > span {
+  animation: landing-typing 1.2s ease-in-out infinite;
+}
+.landing-typing > span:nth-child(2) { animation-delay: 0.15s; }
+.landing-typing > span:nth-child(3) { animation-delay: 0.3s; }
+
+/* How-it-works: the sticky stage cross-fades between vignettes. */
+.landing-stage-item {
+  transition:
+    opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.landing-stage-item[data-active="false"] {
+  opacity: 0;
+  transform: translate3d(0, 12px, 0) scale(0.985);
+  pointer-events: none;
+}
+
+/* FAQ accordion marker. */
+.landing-faq summary::-webkit-details-marker { display: none; }
+.landing-faq summary { list-style: none; }
+.landing-faq[open] .landing-faq-icon { transform: rotate(45deg); }
+.landing-faq-icon { transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+
+/* Sticky nav slides in once the hero has scrolled away. */
+.landing-nav {
+  transition:
+    transform 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.4s ease,
+    visibility 0s linear 0.5s;
+}
+
+.landing-nav[data-visible="false"] {
+  transform: translate3d(-50%, -140%, 0);
+  opacity: 0;
+  visibility: hidden;
+}
+
+.landing-nav[data-visible="true"] {
+  transform: translate3d(-50%, 0, 0);
+  opacity: 1;
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-live,
+  .landing-typing > span {
+    animation: none;
+  }
+  .landing-stage-item,
+  .landing-nav,
+  .landing-faq-icon {
+    transition: none;
+  }
+  .landing-root * {
+    scroll-behavior: auto !important;
+  }
+}
+
+html:has(.landing-root) {
+  scroll-behavior: smooth;
+  scroll-padding-top: 88px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:has(.landing-root) {
+    scroll-behavior: auto;
+  }
+}
