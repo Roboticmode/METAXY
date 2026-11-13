@@ -1,4 +1,4 @@
-# Student-Freelancer Archetype — Primary Demo Use Case
+# Student-Freelancer Archetype: Primary Demo Use Case
 
 > **Status:** Chosen demo archetype for METAXY implementation.  
 > **Scope note:** METAXY is designed to work for any South African small business (formal or informal). This document defines the **specific archetype and vertical slice** we are seeding with data and demonstrating end-to-end.
@@ -170,7 +170,7 @@ METAXY's engine is domain-agnostic; the student-freelancer setup simply swaps co
 Currently, the dashboard shell and agent event pipeline are implemented using an initial placeholder bakery dataset (`Thandi's Bakes` in `src/lib/agent/data.ts`). Adapting the live app to this chosen archetype maps cleanly onto the existing architecture:
 
 - **Event-driven UI (`src/lib/agent/types.ts`, `src/lib/store.tsx`):** Keep the `AgentEvent` stream (`trace`, `reply`, `order`/project, `approval`, `memory`, `compliance`) and extend event/state types for **school commitments**, **capacity/collision alerts**, **invoices**, and **scope-creep flags**.
-- **Seed data (`src/lib/agent/data.ts`):** Replace the bakery catalog/orders with Naledi Studio's profile, policies, service deliverables, 6 clients, 8 projects, 14 invoices, 5 school modules, 12 school deadlines, and preset WhatsApp triggers for Scenarios 1–4.
+- **Seed data (`src/lib/agent/data.ts`):** Replace the bakery catalogue/orders with Naledi Studio's profile, policies, service deliverables, 6 clients, 8 projects, 14 invoices, 5 school modules, 12 school deadlines, and preset WhatsApp triggers for Scenarios 1–4.
 - **Agent pipeline & tools (`src/lib/agent/pipeline.ts`, `src/lib/agent/tools.ts`, `src/lib/agent/brain.ts`):** Upgrade `checkCalendar` into a two-sided `Planner` capacity/collision check, add scope-comparison and invoice-aging tools (`Client Desk` + `Books`), and update `grokBrain` / `mockBrain` prompts accordingly.
 - **Dashboard boards (`src/components/operations-board.tsx`, `src/components/compliance-board.tsx`, `src/components/other-boards.tsx`, `src/components/whatsapp-panel.tsx`):** Surface the shared Client + School commitment timeline, collision resolution cards, scope-creep change-quote approvals, and invoice chasing alongside the Compliance, Opportunities, and CRM & Retention views.
 

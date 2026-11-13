@@ -1,4 +1,4 @@
-# METAXY — Master Design Prompt (Lovable / v0 / Bolt)
+# METAXY: Master Design Prompt (Lovable / v0 / Bolt)
 
 Structured using the **concept-led product and experience brief** method from *Hackathon Analysis and Advice* (`MEMORY/ChatGPT Data/conversations-006.json`): establishes the product, human context, experience, behaviour, and visual identity while giving the design model full creative ownership over layout and components.
 

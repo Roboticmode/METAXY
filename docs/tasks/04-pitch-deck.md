@@ -1,4 +1,4 @@
-# Task 4 — Pitch deck & demo script
+# Task 4: Pitch deck & demo script
 
 **Branch:** `docs/pitch-deck` · **Merge:** any time (docs only) · **Size:** ~3–4 h
 
@@ -13,7 +13,7 @@ A tight **3-minute pitch** for the judges: a slide deck, a spoken script and a d
 
 ## Deliverables
 1. **Slide deck** (~10–12 slides) that matches the METAXY look: editorial, calm, mono labels, one accent colour.
-   1. Title: METAXY — *from hustle to formal business*
+   1. Title: METAXY: *from hustle to formal business*
    2. Hook stat: ≈3M SMEs, ~1.2–1.8M unregistered (labelled estimate)
    3. The problem: three walls (rigid bots · informal-to-formal gap · black-box AI)
    4. Meet the owners: Launch → Run (graduate founder → student freelancer; any small business)

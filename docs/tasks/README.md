@@ -1,4 +1,4 @@
-# Task Board — Build Sprint 2
+# Task Board: Build Sprint 2
 
 Three workstreams that can run **at the same time** (one person or agent each). Every task has its own brief, branch and set of files it owns, so nobody overwrites anybody else.
 
@@ -44,12 +44,12 @@ These are the few places where the tasks touch. Agree on them up front so nobody
 5. **Layout state lives in the store** so the agent can drive it. Task 3 adds these to `store.tsx`: `ui.leftOpen`, `ui.rightOpen`, and `ui.focus` (the anchor id to highlight). Task 2 reads/writes them through `useMetaxy()`. Until Task 3 lands, Task 2 can use local `useState` with the same names — swapping later is a one-line change.
 6. **Selected compliance task** moves from local state in `compliance-board.tsx` into the store (`ui.complianceTask`) so the agent can open a specific task. Task 3 makes that small change after Task 2 has merged.
 
-## Open decision — demo archetype data ⚠️
+## Demo archetype data (synced on main)
 
-[docs/archetypes/student-freelancer.md](../archetypes/student-freelancer.md) makes **Naledi Studio** (student freelancer) the primary demo, with [graduate-founder.md](../archetypes/graduate-founder.md) as the "Launch" companion. The app still runs on the **Thandi's Bakes** bakery seed data.
+[docs/archetypes/student-freelancer.md](../archetypes/student-freelancer.md) makes **Naledi Studio** (student freelancer) the primary demo, with [graduate-founder.md](../archetypes/graduate-founder.md) as the "Launch" companion.
 
-- None of the three tasks above depends on this. Write copy and example prompts that work for either dataset.
-- Swapping the seed data and adding the Planner / Books / Client Desk scenarios is a **fourth workstream** (it touches `src/lib/agent/**`). Decide as a team whether it happens today and who owns it, then add it as row 4 above.
+- **Status on `main`:** `src/lib/agent/**`, the dashboard boards, and `/dashboard` + `/` (with Supabase Auth) are now running on the **Naledi Studio** seed data (`Client Desk`, `Books`, `Planner`).
+- Tasks 1–3 should write copy and example prompts aligned with Naledi Studio while keeping METAXY generalisable to any small business.
 
 ## Everyone, before you start
 

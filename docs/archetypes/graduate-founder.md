@@ -1,4 +1,4 @@
-# Graduate Founder Archetype — Companion Launch Use Case
+# Graduate Founder Archetype: Companion Launch Use Case
 
 > **Status:** Companion / secondary archetype (**Launch** stage).  
 > **Relationship:** Precedes [student-freelancer.md](student-freelancer.md) (**Run** stage). Together they tell one story: *Launch, then Run*. METAXY works for any small business, formal or informal; the Student-Freelancer archetype is the primary slice selected for the live demo implementation.

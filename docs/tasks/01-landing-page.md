@@ -1,4 +1,4 @@
-# Task 1 — Landing page
+# Task 1: Landing page
 
 **Branch:** `feat/landing-page` · **Merge:** first · **Size:** ~4–6 h
 
@@ -39,7 +39,7 @@ A public landing page at `/` that explains METAXY in under 30 seconds and gets j
    - **Screenshots:** use a reusable `<ScreenshotFrame label="Operations board" />` placeholder (browser chrome + tasteful placeholder art + the label). Real images can drop into `public/screenshots/*.png` later through an optional `src` prop and `next/image`. Real screenshots captured from the running dashboard are welcome if time allows.
 3. **Metadata & SEO:** title/description for `/` and `/dashboard`, Open Graph + Twitter card text, a generated OG image (`opengraph-image.tsx`, see the Next 16 docs), `robots`/`sitemap` optional.
 
-## Quality bar — "cinematic, not template"
+## Quality bar: "cinematic, not template"
 - Editorial typography: big confident headings with tight tracking, generous whitespace, JetBrains Mono for small technical labels (`M-01`, `OPS-02` …), consistent with the dashboard.
 - Motion: subtle reveal-on-scroll (IntersectionObserver + CSS; no heavy animation library unless it clearly earns its place), parallax ≤ 8 px, everything off under `prefers-reduced-motion`.
 - One accent colour (the existing `--accent`). Mostly dark → light → dark rhythm between sections. No purple gradients, no stock "AI brain" art, no fake customer logos or fake testimonials.

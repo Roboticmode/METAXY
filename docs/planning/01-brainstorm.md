@@ -1,4 +1,4 @@
-# METAXY — Brainstorm
+# METAXY: Brainstorm
 
 > *METAXY* (Greek *metaxý* "in between"): the bridge between informal daily hustle and structured, formal business.
 > Working notes. **Status: DRAFT — decisions marked 🔲 need team sign-off.**

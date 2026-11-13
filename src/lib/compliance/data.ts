@@ -151,7 +151,7 @@ export const complianceTasks: ComplianceTask[] = [
   },
   {
     id: "popia-io",
-    label: "POPIA — register Information Officer",
+    label: "POPIA: register Information Officer",
     category: "Data protection (POPIA)",
     status: "todo",
     priority: "medium",
@@ -166,7 +166,7 @@ export const complianceTasks: ComplianceTask[] = [
   },
   {
     id: "popia-consent",
-    label: "POPIA — client privacy notice & opt-in",
+    label: "POPIA: client privacy notice & opt-in",
     category: "Data protection (POPIA)",
     status: "todo",
     priority: "medium",

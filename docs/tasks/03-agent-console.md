@@ -1,4 +1,4 @@
-# Task 3 — Agent console: talk to METAXY, and it drives the dashboard
+# Task 3: Agent console (talk to METAXY, and it drives the dashboard)
 
 **Branch:** `feat/agent-console` · **Merge:** last · **Size:** ~4–5 h (v1), voice is a stretch
 

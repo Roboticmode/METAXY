@@ -1,4 +1,4 @@
-# Task 2 — Responsive dashboard + collapsible columns
+# Task 2: Responsive dashboard + collapsible columns
 
 **Branch:** `feat/responsive-dashboard` · **Merge:** second (after the landing page) · **Size:** ~3–4 h
 

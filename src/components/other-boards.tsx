@@ -7,7 +7,7 @@ import { Badge, Btn, MonoLabel, Panel } from "@/components/ui";
 export function OpportunitiesBoard() {
   return (
     <div className="min-h-0 flex-1 overflow-y-auto p-4">
-      <Panel title="Opportunity radar — within 15 km of Johannesburg" code="OPP-01" right={<Badge tone="info">fixture data</Badge>}>
+      <Panel title="Opportunity radar · within 15 km of Johannesburg" code="OPP-01" right={<Badge tone="info">fixture data</Badge>}>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
           {leads.map((l) => (
             <div key={l.name} className="rounded border border-border p-3">

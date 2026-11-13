@@ -1,4 +1,4 @@
-# Hackathon Brief — Grok Bot Johannesburg Hackathon
+# Hackathon Brief: Grok Bot Johannesburg Hackathon
 
 Source: https://luma.com/spacexai-0jmr?tk=zB235j (+ mentor briefing from [Mentor], SpaceXSI)
 
