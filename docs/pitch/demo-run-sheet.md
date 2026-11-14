@@ -2,9 +2,9 @@
 
 The live demo runs from **1:05 to 2:05** of the 3-minute pitch ([`script.md`](script.md)). One person drives the mouse and one person speaks. Rehearse it at least twice with the exact build you will demo.
 
-The demo persona is **Naledi Studio**: Naledi Khumalo, a third-year Information Systems student who runs a small design and web studio. Everything on screen is synthetic: Naledi, her clients (Buhle Sithole, Thabo Nkosi …), her timetable, numbers and invoices.
+Everything on screen is synthetic: Naledi Studio, Buhle Sithole, Thabo Nkosi and all other clients, modules, numbers and invoices.
 
-Screenshots of each expected state are in [`assets/`](assets/), captured from the live app with the scripted engine on 13 Nov 2026.
+Screenshots of each expected state are in [`assets/`](assets/). They were captured from `main` (b770745, Naledi Studio data) with the scripted engine at 1600×900 on 13 Nov 2026.
 
 ---
 
@@ -13,16 +13,16 @@ Screenshots of each expected state are in [`assets/`](assets/), captured from th
 | ✓ | Check |
 | --- | --- |
 | ☐ | Laptop is on mains power. Notifications are off (Windows: Focus / Do not disturb). Close Slack, WhatsApp Desktop and email. |
-| ☐ | The repo is on the branch you rehearsed. `npm install` has run. `npm run dev` is running. |
-| ☐ | Open **`http://localhost:3000/dashboard`** (the landing page is at `/`). Bookmark it. No sign-in is needed: logged out, the header shows *Demo · Sign in*. |
-| ☐ | **Engine decision.** No `.env.local` (or an empty `XAI_API_KEY`) means the **scripted** engine: offline and a few seconds per scenario. With a key, the **Grok live** engine is slower and needs Wi-Fi. If you go with Grok, run the scenario once to warm it up, then reset. If the venue Wi-Fi is shaky, use scripted. |
+| ☐ | The repo is on the commit you rehearsed. `npm install` has run, so `@supabase/ssr` is present. `npm run dev` is running. If Turbopack can't resolve `next` (e.g. `node_modules` is a junction), use `npx next dev --webpack`. |
+| ☐ | **URL:** the dashboard is at **`http://localhost:3000/dashboard`**. The landing page at `/` has **Launch live demo (no sign-up)**, which goes to the same place. Bookmark `/dashboard`. Don't sign in: the demo runs logged out, and the header shows **DEMO · SIGN IN**. |
+| ☐ | **Engine decision.** No `.env.local` (or an empty `XAI_API_KEY`) means the **scripted** engine: offline, about 7 s per enquiry. With a key, the **Grok live** engine is slower and needs Wi-Fi. If you go with Grok, run the demo once to warm it up, then reset. If the venue Wi-Fi is shaky, use scripted. |
 | ☐ | If you demo with Grok live, edit the slide 6 footer (`Running offline · scripted engine`) and skip "…which is what ran just now" on slide 9. |
 | ☐ | Browser window is **≥ 1440 px wide** at **100 % zoom**, so all three columns (left nav · board · phone panel) are visible. Hide the bookmarks bar. Full screen with `F11`. |
 | ☐ | Deck is open in a second window (`docs/pitch/deck/index.html`) on slide 6, and `Alt+Tab` switches cleanly between the two. |
 | ☐ | Fallback video is open, paused at 0:00, in a third window (see [Fallback plan](#fallback-plan)). |
-| ☐ | **Reset** the app (§4). The phone panel header reads **Buhle Sithole · Sithole Events · +27 82 555 0142**, the board shows **Operations**, the triggers strip shows **1 calendar collision · 2 overdue**, and the Approval queue says **clear**. |
+| ☐ | **Reset** the app (§4). Operations shows **1 CALENDAR COLLISION · 2 OVERDUE**, the Approval queue says *Nothing needs your decision yet*, and Agent activity is **idle**. |
 
-> ⚠️ **Gotcha:** the preset buttons send the message **as whoever is open in the phone panel**. If you clicked another chat in the WhatsApp inbox, the Friday request is sent as that client and the story changes. Always check that the header says **Buhle Sithole** before step 1.
+> The preset buttons now send as their own client (each preset carries a `customerId`), so it no longer matters which chat is open in the phone panel.
 
 ---
 
@@ -31,49 +31,68 @@ Screenshots of each expected state are in [`assets/`](assets/), captured from th
 ### Step 1 · 1:05 · "Can you do it by Friday?"
 **Click:** phone panel (right) → **Simulate client** (already selected) → preset **`1 · Can you do it by Friday?`**
 
-**On screen (a few seconds, scripted):** [`assets/02-friday-approval.png`](assets/02-friday-approval.png)
-- Client bubble: *"hey naledi got your number from a friend. need a 3-page website for Sithole Events urgently, can you do it by next friday?"*
-- **Agent activity** streams, each line tagged with the agent that did it:
-  `CLIENT DESK · Triage incoming WhatsApp` (new lead, urgent, asked for Friday 20 November) → `CLIENT DESK · Match client ledger` (new lead) → `PLANNER · Check university + studio calendar` (**BLOCKED**: IS302 Term Test 2 on Thursday 19 November, 0 h free) → `BOOKS · Draft quote & deposit rule` (R3 200 · 50 % deposit R1 600) → `CLIENT DESK · Hold outbound message for approval`.
-- **Approval queue:** *Test-week capacity alert · propose Saturday 21 November*, with the drafted WhatsApp reply and **Approve & send / Hold**. Nothing has been sent to the client yet.
+**On screen (≈ 7 s to the approval card, scripted):** [`assets/02-friday-approval.png`](assets/02-friday-approval.png)
+- Client bubble from **Buhle Sithole (Sithole Events)**: *"…need a 3-page website for Sithole Events urgently, can you do it by next friday?"*
+- **Agent activity** streams, one agent per step:
+  - `CLIENT DESK` Triage incoming WhatsApp (urgent, asked for Friday 20 November)
+  - `CLIENT DESK` Match client ledger (new lead)
+  - `PLANNER` Check university + studio calendar: **BLOCKED** (IS302 Term Test 2 on Thursday 19 November), proposing **Saturday 21 November**
+  - `BOOKS` Draft quote & deposit rule (R3 200 total, 50 % deposit R1 600)
+  - `CLIENT DESK` Hold outbound message for approval
+- **Approval queue:** *Test-week capacity alert · propose Saturday 21 November* (PLANNER), with the **Draft WhatsApp message** and **Approve & send** / **Hold**. The header shows **1 DECISION WAITING**.
 
 **Say:**
-> "Naledi is a student who freelances. A new client wants a website by Friday. A normal bot says yes."
+> "A new client, Buhle, messages Naledi: a three-page website, urgently, by next Friday. It's test week."
 >
-> *(point at Agent activity)* "METAXY's agents check both sides of her life. Planner sees a database test on Thursday. Books prices it with a deposit. Client Desk drafts an honest reply, and stops. Nothing goes out without Naledi."
+> *(point at Agent activity as steps appear)* "Client Desk reads it. Planner checks both calendars: her database test is Thursday, so Friday isn't honest. It proposes Saturday, prices it, and holds the reply for her."
 
-### Step 2 · 1:22 · Owner approves
-**Click:** Approval queue → **Approve & send**.
+⚠️ **Known app bug:** the scripted draft proposes Saturday 21 November but ends with *"Does Monday work?"*. **Don't read the draft aloud.** It needs a one-line fix in the scripted compose text (`src/lib/agent/brain.ts`), not in these docs.
 
-**On screen (a few seconds):** [`assets/03-approved-formalise-nudge.png`](assets/03-approved-formalise-nudge.png)
-- Approval card → **ALLOWED**. The reply appears in the phone panel as a *METAXY AGENT* bubble.
-- **Green card at the top:** **READY TO FORMALISE NALEDI STUDIO** (*turnover ≈ R92 400 across 12 months…*), with *Open checklist*.
+### Step 2 · 1:23 · Naledi approves
+**Click:** Approval card → **Approve & send**.
 
-**Say:**
-> "One click, and the honest date goes out. And because the studio keeps growing, METAXY says: *you're ready to formalise.*"
-
-### Step 3 · 1:32 · Collision caught before it happens
-**Click:** triggers strip → **Check collisions (Planner)**. Then on the new card → **Approve & send**.
-
-**On screen (a few seconds each):** [`assets/04-collision-approval.png`](assets/04-collision-approval.png) → [`assets/05-collision-cleared.png`](assets/05-collision-cleared.png)
-- New card: *Resolve Wednesday 25 November collision · Capstone Milestone 3 Demo*. Thabo Nkosi's solar website is due the same day as her capstone demo. The draft asks Thabo for **+1 day (Thursday 26 November)**, and Planner moves a revision block to Saturday.
-- After approving: the triggers strip reads **Calendar clear** and the calendar panel says **IN SYNC**.
+**On screen (≈ 4 s):** [`assets/03-approved-formalise-nudge.png`](assets/03-approved-formalise-nudge.png)
+- The card turns **ALLOWED**, and the exact draft appears as a **METAXY AGENT** bubble in Buhle's chat.
+- Agent activity: `Approved by Naledi` → `Provisional studio block added` → `Check formalisation readiness` (trailing 12-month turnover ≈ R92 400).
+- **Green card at the top:** **READY TO FORMALISE NALEDI STUDIO**, with **Open checklist**. Compliance in the left nav gets a badge.
 
 **Say:**
-> "Two weeks out, Planner spots a client deadline on the same day as her capstone demo. It proposes the fix and drafts the message to the client. Naledi approves. Collision gone, before it ever happened."
+> "Naledi approves. The reply goes out, the slot is pencilled in, and the agent notices she's ready to formalise."
 
-### Step 4 · 1:47 · The line it never crosses
-**Click:** phone panel → preset **`Coursework boundary (Never)`**.
+### Step 3 · 1:31 · Collision week
+**Click:** **Check collisions (Planner)** (Agent triggers bar, top of Operations). A new card appears (≈ 2 s). Then click **Approve & send** on it.
 
-**On screen (a few seconds):** [`assets/11-coursework-boundary.png`](assets/11-coursework-boundary.png)
+**On screen:** [`assets/04-collision-approval.png`](assets/04-collision-approval.png) → [`assets/05-collision-cleared.png`](assets/05-collision-cleared.png)
+- Agent activity: `Scan Client + School calendars` → **`Deadline collision found!`**: PRJ-109 (Thabo Nkosi · Nkosi Solar) and Capstone Milestone 3 Demo both fall on **Wednesday 25 November** → `Propose 2-sided resolution` (shift the revision study block to Sat 21 Nov, and ask Thabo for one extra day, to Thu 26 Nov).
+- Card: *Resolve Wednesday 25 November collision · Capstone Milestone 3 Demo*, with a draft to Thabo.
+- After **Approve & send** (≈ 4 s): `Collision cleared`. The trigger badge flips to **CALENDAR CLEAR**, and the shared calendar shows **IN SYNC**. The message goes into Thabo's chat; the phone panel stays on Buhle, which is fine.
+
+**Say:**
+> "Planner also scans the next two weeks. A client website lands on her capstone demo day. It proposes one extra day, with a draft to the client. Approve."
+
+### Step 4 · 1:43 · Compliance bridge
+**Click:** **Open checklist** on the green card. The Compliance tab opens with **CIPC company registration** selected. Then click **Prepare with agent**.
+
+**On screen (≈ 3 s):** [`assets/06-compliance-cipc.png`](assets/06-compliance-cipc.png) → [`assets/07-compliance-cipc-prepared.png`](assets/07-compliance-cipc-prepared.png)
+- The button shows *Preparing…*, then the task turns **READY FOR YOU**, with a **Prepared by agent** list and an **Only you can do this** box (log in with your own CIPC customer code, sign and pay).
+
+**Say:**
+> "CIPC registration: the agent checks her documents and pre-fills the application. Naledi signs and pays herself."
+
+*Don't click "I've submitted it" on stage.*
+
+### Step 5 · 1:52 · The "Never" boundary
+**Click:** phone panel preset **`Coursework boundary (Never)`**. This works from any tab.
+
+**On screen (≈ 2 s):** [`assets/11-coursework-boundary.png`](assets/11-coursework-boundary.png)
 - Client bubble: *"hey can you also write my cousin's IS302 database assignment for R500?"*
-- Agent reply: *"…I never write, edit, or complete university assignments or coursework…"*
-- Agent activity: `CLIENT DESK · Academic integrity boundary (P-05)` → **Blocked**.
+- Agent reply: *"…I never write, edit, or complete university assignments or coursework. Let me know if you need studio design work instead!"*
+- Agent activity (if on Operations): `Academic integrity boundary (P-05)` → **Blocked**.
 
 **Say:**
-> "And some things it never does. Paid to write an assignment? It declines, politely, every time."
+> "And if someone asks it to write a cousin's assignment for five hundred rand? Never."
 
-### Step 5 · 2:02 · Hand back to the deck
+### Step 6 · 2:02 · Hand back to the deck
 `Alt+Tab` to the deck, press `→` to slide 7, and say exactly:
 > **"So what did you just see? One rule."**
 
@@ -81,35 +100,37 @@ Screenshots of each expected state are in [`assets/`](assets/), captured from th
 
 ## 2 · Timing budget
 
-| Step | Target | Scripted engine (observed) | Grok live |
+| Step | Target | Scripted engine (measured) | Grok live |
 | --- | --- | --- | --- |
-| 1 · Friday request | 1:05–1:22 | a few seconds from click to approval card | several seconds per model step; talk over it |
-| 2 · Approve & send | 1:22–1:32 | a few seconds | a few seconds |
-| 3 · Check collisions + approve | 1:32–1:47 | a few seconds per click | same (no model call) |
-| 4 · Coursework boundary | 1:47–2:02 | a few seconds | several seconds |
+| 1 · Friday enquiry | 1:05–1:23 | ≈ 6.7 s to the approval card (≈ 7.1 s until idle) | several seconds per model step; talk over it |
+| 2 · Approve & send | 1:23–1:31 | ≈ 4.2 s | similar (no model call on approve) |
+| 3 · Check collisions + approve | 1:31–1:43 | ≈ 2.6 s + ≈ 4.0 s | slower (the draft is composed by the model) |
+| 4 · Prepare with agent | 1:43–1:52 | ≈ 3.2 s | same (no model call) |
+| 5 · Coursework boundary | 1:52–2:02 | ≈ 2.3 s | a few seconds |
 
-Time each step yourself in rehearsal and write the real numbers here.
+Measured on 13 Nov 2026 with local `next dev --webpack`, the scripted engine and headless Chrome at 1600×900.
 
-If step 1 is still streaming when your line ends, **stop talking and let the audience watch**. The streaming steps are the point.
+If a step is still streaming when your line ends, **stop talking and let the audience watch**. The streaming steps are the point.
 
 ---
 
 ## 3 · Optional extras (only if you have time, or in Q&A)
-- **Compliance bridge:** green card → **Open checklist** → CIPC company registration is selected → **Prepare with agent**. The task turns *ready for you*. The agent pre-fills; Naledi signs and pays herself. Screenshots: [`06`](assets/06-compliance-cipc.png) → [`07`](assets/07-compliance-cipc-prepared.png).
-- **Books:** triggers strip → **Chase overdue (Books)** → friendly EFT reminders drafted for overdue invoices, each waiting for approval.
-- **Scope creep:** preset `4 · Scope creep request` → Client Desk compares the request with the agreed deliverables, flags it and drafts a change quote.
-- **FAQ:** preset `FAQ — banking details` or `FAQ — rates & packages` → answered from the brief, no owner time needed.
-- **Hand-off:** preset `Complaint (hand off)` → the agent hands the chat to Naledi instead of guessing.
-- **Exam mode:** triggers strip → **Exam mode** → new intake pauses and active clients get a polite "away until…" draft.
+- **Run today's** (WhatsApp tab → Automations): sends 4 template messages (deposit nudges to Kagiso Mokoena and Buhle, a test-week status update to Zanele Dube, and a dormant check-in to Amina Patel, who opted in). Screenshots: [`assets/09-whatsapp-automations-run.png`](assets/09-whatsapp-automations-run.png), [`assets/10-operations-activity.png`](assets/10-operations-activity.png). Note: these send without an approval card, even though the "Deposit & invoice chaser" label says *for your approval*.
+- **`4 · Scope creep request`** (Zanele Dube): Client Desk flags the extra logo variations as out of scope, and Books drafts a R950 add-on quote for approval.
+- **Chase overdue (Books)**: drafts an EFT reminder for INV-2041 (Kagiso Molefe, R2 400, 21 days overdue) for approval.
+- **Exam Mode: OFF → ON**: pauses new intake and drafts a client notice for approval.
+- **`Complaint (hand off)`**: the agent hands the chat to Naledi and doesn't guess.
+- **Take over:** **Reply as Naledi** → type → the agent pauses for that chat. *Hand back to agent* resumes it.
 
-Run each extra from a **reset** state (with Buhle's chat open), or the inbox gets noisy.
+Run extras from a **reset** state, or the queue gets noisy.
 
 ---
 
 ## 4 · Reset procedure (between rehearsals and right before going on)
-1. Click the **reset icon** (↻, *Reset demo*) at the top-right of the **phone panel**, next to the *AGENT* badge. This clears messages, approvals, nudges and compliance progress back to the seed data.
+1. Click the **reset icon** (↻, *Reset demo*) at the top-right of the **phone panel**, next to the *AGENT* badge.
+   This restores all seed data: messages, projects, invoices, approvals, nudges, the calendar collision, compliance progress, automations and Exam Mode. It **keeps the current tab** and the engine badge.
 2. Click **Operations** in the left nav.
-3. Check: the phone header says **Buhle Sithole**, the triggers strip shows **1 calendar collision · 2 overdue**, the Approval queue is **clear**, and there's no green *ready to formalise* card. Screenshot: [`assets/01-dashboard-idle.png`](assets/01-dashboard-idle.png).
+3. Check: **1 CALENDAR COLLISION · 2 OVERDUE**, an empty Approval queue, Agent activity **idle**, and no green *Ready to formalise* card. Screenshot: [`assets/01-dashboard-idle.png`](assets/01-dashboard-idle.png).
 
 If anything looks off, **reload the page (F5)**. State lives only in memory, so a reload is a full reset too.
 
@@ -120,29 +141,24 @@ If anything looks off, **reload the page (F5)**. State lives only in memory, so 
 | Situation | What to do | What to say |
 | --- | --- | --- |
 | **A Grok call fails mid-demo** | Nothing. That step falls back to the scripted engine automatically, and Agent activity shows an amber `Engine fallback` line. | "The network blinked, so the offline engine took over that step. That's by design." |
-| **Grok is slow or Wi-Fi is down before you start** | Rename `.env.local` (or empty `XAI_API_KEY`) and restart `npm run dev`. The phone panel badge must read **SCRIPTED**. This is fully offline. | Nothing. Demo as normal. |
+| **Grok is slow or Wi-Fi is down before you start** | Rename `.env.local` (or empty `XAI_API_KEY`) and restart the dev server. The phone panel badge must read **SCRIPTED**. This is fully offline. Supabase isn't needed for the logged-out demo. | Nothing. Demo as normal. |
 | **The app won't load, or the laptop misbehaves** | Switch to the **pre-recorded video** and play it from the step you were on. Keep saying the same lines. | "Let me show you the recording." |
-| **The projector won't take the browser** | Present the deck only. Slides 5 and 8 contain real screenshots; walk through [`assets/`](assets/) images 02 → 03 → 04 → 05 → 11 if you can. | Same lines, in past tense. |
+| **The projector won't take the browser** | Present the deck only. Slides 5 and 8 contain real screenshots; walk through [`assets/`](assets/) images 02 → 03 → 04 → 07 → 11 if you can. | Same lines, in past tense. |
 
-### Recording the fallback video (do this after feature freeze, ~15:30)
+### Recording the fallback video (do this after feature freeze)
 1. Reset the app (§4), scripted engine, 1440–1600 px wide window, 100 % zoom.
 2. Record the screen: **Win + Alt + R** (Xbox Game Bar), or OBS. Capture the browser window only.
-3. Do steps 1 → 4 exactly as above, at presenting pace (~50 s), **without voice**. The speaker talks live over it.
+3. Do steps 1 → 5 exactly as above, at presenting pace (~55 s), **without voice**. The speaker talks live over it.
 4. Trim it to start on the idle dashboard. Save it as `metaxy-demo-fallback.mp4` on the presenting laptop's desktop **and** a USB stick.
    Don't commit it to the repo (size). Note where it is here: `[path / link]`.
 5. Play it once on the projector during setup.
 
 ---
 
-## Known issue to fix before the pitch
-The drafted Friday reply proposes **Saturday 21 November** but ends with *"Does Monday work?"* (seed data in `src/lib/agent/`). Fix the wording before rehearsal, or a judge may notice.
-
----
-
 ## Things that must stay true on stage
 - Say **"simulated WhatsApp"**, never "connected to WhatsApp". The Cloud API isn't wired up; the setup checklist is.
 - Only say **"Grok"** if the badge reads **GROK LIVE**.
+- **Don't claim "zero unapproved messages" overall.** Dates, quotes, collision fixes, overdue reminders and Exam Mode notices wait for approval. FAQ answers, the coursework refusal and **Run today's** automations send on their own. (The landing page currently says "Zero unapproved outbound messages"; flag that to the landing owner.)
 - Compliance is **guidance, not legal or tax advice**. The agent never signs, submits or pays.
-- METAXY **never writes coursework**. It manages time *around* school.
-- Opportunities and most of CRM are **sample (fixture) data**.
+- Opportunities and most of CRM are **sample (fixture) data**. Only client memory updates live.
 - All people, phone numbers (`+27 … 555 01xx`) and businesses are fictional.
